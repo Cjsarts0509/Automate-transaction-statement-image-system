@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Kyobo Scanner Auto-Login",
+  "version": "1.0",
+  "description": "Automates login for Kyobo Book Scanner System",
+  "permissions": ["activeTab", "scripting"],
+  "content_scripts": [
+    {
+      "matches": ["http://iscan.kyobobook.co.kr/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}
