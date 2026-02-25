@@ -1,0 +1,54 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    # main 브랜치에 코드가 push될 때 액션이 실행됩니다.
+    # 만약 기본 브랜치 이름이 master라면 'master'로 변경해 주세요.
+    branches: ['main'] 
+
+# GitHub Pages 배포를 위해 필요한 권한 설정
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 여러 번 연속으로 push 했을 때 꼬이지 않도록 이전 배포를 취소하는 설정
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        # Vite 프로젝트 빌드 명령어
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Vite가 빌드한 결과물이 담기는 폴더 이름입니다.
+          path: './dist' 
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
