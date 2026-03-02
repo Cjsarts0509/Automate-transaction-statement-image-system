@@ -5,8 +5,8 @@ import { Monitor, ScanLine } from "lucide-react";
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-[#EDEFF3] p-4 sm:p-6 font-sans text-gray-900">
-      <div className="max-w-6xl mx-auto space-y-5">
+    <div className="min-h-screen bg-[#EDEFF3] p-4 sm:p-6 font-sans text-gray-900 flex items-center justify-center">
+      <div className="max-w-6xl w-full space-y-5">
         {/* Header */}
         <div className="bg-[#0A2463] rounded-xl px-6 py-4 flex items-center gap-3 shadow-lg">
           <div className="w-9 h-9 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center">
