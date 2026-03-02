@@ -3,15 +3,15 @@ import {
   Download,
   CheckCircle2,
   Monitor,
-  Settings,
+  Package,
 } from "lucide-react";
 import { toast } from "sonner";
 import JSZip from "jszip";
 
 // VBS 런처 스크립트: 커스텀 프로토콜 URL에서 id/pw를 파싱하여 IE 자동 로그인
 const LAUNCHER_VBS = [
-  "' Kyobo Scanner - IE Auto Login Launcher",
-  "' Called via kyoboscan:// protocol handler",
+  "' Scanner - IE Auto Login Launcher",
+  "' Called via custom protocol handler",
   "",
   "On Error Resume Next",
   "",
@@ -92,7 +92,7 @@ const KYOBOSCAN_REG = [
   "Windows Registry Editor Version 5.00",
   "",
   "[HKEY_CURRENT_USER\\Software\\Classes\\kyoboscan]",
-  '@="URL:Kyobo Scanner Protocol"',
+  '@="URL:Scanner Protocol"',
   '"URL Protocol"=""',
   "",
   "[HKEY_CURRENT_USER\\Software\\Classes\\kyoboscan\\shell]",
@@ -100,22 +100,22 @@ const KYOBOSCAN_REG = [
   "[HKEY_CURRENT_USER\\Software\\Classes\\kyoboscan\\shell\\open]",
   "",
   "[HKEY_CURRENT_USER\\Software\\Classes\\kyoboscan\\shell\\open\\command]",
-  '@="wscript \\"C:\\\\ScanKBB\\\\kyobo-launcher.vbs\\" \\"%1\\""',
+  '@="wscript \\"C:\\\\ScanKBB\\\\ie-launcher.vbs\\" \\"%1\\""',
 ].join("\r\n");
 
 // 설치 BAT 스크립트 (영문 전용 - 인코딩 문제 방지)
 const INSTALL_BAT = [
   "@echo off",
   "echo ============================================",
-  "echo  Kyobo Scanner - Protocol Handler Install",
+  "echo  Scanner - Protocol Handler Install",
   "echo ============================================",
   "echo.",
   "",
   "mkdir C:\\ScanKBB 2>nul",
-  'copy /Y "%~dp0kyobo-launcher.vbs" C:\\ScanKBB\\kyobo-launcher.vbs >nul',
-  "echo [OK] kyobo-launcher.vbs copied to C:\\ScanKBB",
+  'copy /Y "%~dp0ie-launcher.vbs" C:\\ScanKBB\\ie-launcher.vbs >nul',
+  "echo [OK] ie-launcher.vbs copied to C:\\ScanKBB",
   "",
-  'regedit /s "%~dp0kyoboscan.reg"',
+  'regedit /s "%~dp0scanner.reg"',
   "echo [OK] kyoboscan:// protocol registered",
   "",
   "echo.",
@@ -131,15 +131,15 @@ const INSTALL_BAT = [
 const UNINSTALL_BAT = [
   "@echo off",
   "echo ============================================",
-  "echo  Kyobo Scanner - Protocol Handler Uninstall",
+  "echo  Scanner - Protocol Handler Uninstall",
   "echo ============================================",
   "echo.",
   "",
   "reg delete HKCU\\Software\\Classes\\kyoboscan /f >nul 2>&1",
   "echo [OK] kyoboscan:// protocol removed",
   "",
-  "del /Q C:\\ScanKBB\\kyobo-launcher.vbs 2>nul",
-  "echo [OK] kyobo-launcher.vbs deleted",
+  "del /Q C:\\ScanKBB\\ie-launcher.vbs 2>nul",
+  "echo [OK] ie-launcher.vbs deleted",
   "",
   "echo.",
   "echo  Uninstall complete!",
@@ -156,22 +156,22 @@ export function ExtensionGuide() {
     try {
       const zip = new JSZip();
       zip.file("install.bat", INSTALL_BAT);
-      zip.file("kyobo-launcher.vbs", LAUNCHER_VBS);
+      zip.file("ie-launcher.vbs", LAUNCHER_VBS);
       zip.file("uninstall.bat", UNINSTALL_BAT);
-      zip.file("kyoboscan.reg", KYOBOSCAN_REG);
+      zip.file("scanner.reg", KYOBOSCAN_REG);
 
       const blob = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "kyobo-setup.zip";
+      a.download = "ie-setup.zip";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
       setDownloaded(true);
-      toast.success("kyobo-setup.zip 다운로드 완료!");
+      toast.success("ie-setup.zip 다운로드 완료!");
     } catch (err) {
       toast.error("ZIP 생성 중 오류가 발생했습니다");
     } finally {
@@ -180,18 +180,18 @@ export function ExtensionGuide() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* 다운로드 영역 */}
-      <div className="flex flex-col items-center gap-4 py-6">
-        <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center">
-          <Settings size={32} className="text-blue-600" />
+      <div className="flex flex-col items-center gap-3 py-5">
+        <div className="w-14 h-14 rounded-xl bg-[#E8F5E9] border-2 border-[#3CB043] flex items-center justify-center">
+          <Package size={28} className="text-[#3CB043]" />
         </div>
 
         <div className="text-center">
-          <h3 className="font-semibold text-gray-800 mb-1">
+          <h3 className="text-sm text-[#0A2463] mb-0.5">
             초기 설정 패키지 (최초 1회)
           </h3>
-          <p className="text-sm text-gray-500">
+          <p className="text-xs text-[#888]">
             설치 후 버튼 클릭만으로 IE 자동 실행
           </p>
         </div>
@@ -199,109 +199,114 @@ export function ExtensionGuide() {
         <button
           onClick={handleDownloadSetup}
           disabled={isDownloading}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm transition-all ${
             downloaded
-              ? "bg-green-500 hover:bg-green-600 text-white shadow-md"
-              : "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg"
+              ? "bg-[#3CB043] hover:bg-[#34A03B] text-white shadow-md"
+              : "bg-[#0A2463] hover:bg-[#081D50] text-white shadow-md hover:shadow-lg"
           } ${isDownloading ? "opacity-70 cursor-not-allowed" : ""}`}
         >
           {isDownloading ? (
             <>생성 중...</>
           ) : downloaded ? (
             <>
-              <CheckCircle2 size={18} />
+              <CheckCircle2 size={16} />
               다시 다운로드
             </>
           ) : (
             <>
-              <Download size={18} />
-              kyobo-setup.zip 다운로드
+              <Download size={16} />
+              ie-setup.zip 다운로드
             </>
           )}
         </button>
       </div>
 
       {/* 설치 가이드 */}
-      <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800">
-        <h3 className="font-semibold mb-3 flex items-center gap-2">
-          <Monitor size={16} />
+      <div className="bg-[#F0F4FA] border border-[#B8C9E0] rounded-xl p-4 text-sm text-[#333]">
+        <h3 className="text-sm mb-3 flex items-center gap-2 text-[#0A2463]">
+          <Monitor size={15} className="text-[#0068B7]" />
           설치 방법 (최초 1회)
         </h3>
-        <ol className="list-decimal list-inside space-y-2.5 ml-1">
+        <ol className="list-decimal list-inside space-y-2.5 ml-1 text-sm text-[#444]">
           <li>
             위 버튼으로{" "}
-            <code className="bg-blue-100 px-1 rounded font-mono">
-              kyobo-setup.zip
+            <code className="bg-[#D1D1D1]/50 text-[#0A2463] px-1.5 py-0.5 rounded font-mono text-xs">
+              ie-setup.zip
             </code>
             을 다운로드합니다.
           </li>
           <li>
-            ZIP 파일을 <strong>압축 해제</strong>합니다.
+            ZIP 파일을 <strong className="text-[#0A2463]">압축 해제</strong>합니다.
           </li>
           <li>
-            <code className="bg-blue-100 px-1 rounded font-mono">
+            <code className="bg-[#D1D1D1]/50 text-[#0A2463] px-1.5 py-0.5 rounded font-mono text-xs">
               install.bat
             </code>
-            를 <strong>더블클릭</strong>하여 실행합니다.
+            를 <strong className="text-[#0A2463]">더블클릭</strong>하여 실행합니다.
           </li>
           <li>
-            설치 완료! 이후 좌측{" "}
-            <strong>[IE 자동 로그인 실행]</strong> 버튼만 클릭하면 됩니다.
+            설치 완료! 이후 우측{" "}
+            <strong className="text-[#0068B7]">[IE 자동 로그인 실행]</strong> 버튼만 클릭하면 됩니다.
           </li>
         </ol>
+
+        {/* ActiveX 안내 */}
+        <div className="mt-4 bg-[#FFF5F5] border-2 border-[#DC3545] rounded-lg px-4 py-3">
+          <p className="text-[#8B0000] text-sm"><strong>※</strong> IE 모드 로그인 시 <strong>ActiveX 알림창</strong>이 뜨면, 해당 ActiveX를 <strong>설치</strong>해 주시기 바랍니다. <br /><span className="text-[#DC3545]">(거래명세서 이미지 시스템 설치파일입니다.)</span></p>
+        </div>
       </div>
 
       {/* 포함 파일 목록 */}
-      <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="w-8 h-8 rounded bg-green-100 flex items-center justify-center text-green-700 text-xs font-mono font-bold">
+      <div className="border border-[#D1D1D1] rounded-xl divide-y divide-[#E8E8E8] overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-white hover:bg-[#F8F9FB] transition-colors">
+          <div className="w-7 h-7 rounded-md bg-[#E8F5E9] border border-[#3CB043] flex items-center justify-center text-[#3CB043] text-[10px] font-mono font-bold">
             BAT
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-700">install.bat</p>
-            <p className="text-xs text-gray-400">
-              프로토콜 핸들러 등록 + VBS 복사 (최초 1회 실행)
+            <p className="text-sm text-[#222]">install.bat</p>
+            <p className="text-[11px] text-[#999]">
+              프로토콜 핸들러 등록 + VBS 복사
             </p>
           </div>
-          <CheckCircle2 size={16} className="text-green-500" />
+          <CheckCircle2 size={14} className="text-[#3CB043]" />
         </div>
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-mono font-bold">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-white hover:bg-[#F8F9FB] transition-colors">
+          <div className="w-7 h-7 rounded-md bg-[#E3F2FD] border border-[#0068B7] flex items-center justify-center text-[#0068B7] text-[10px] font-mono font-bold">
             VBS
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-700">
-              kyobo-launcher.vbs
+            <p className="text-sm text-[#222]">
+              ie-launcher.vbs
             </p>
-            <p className="text-xs text-gray-400">
-              IE 자동 실행 + 로그인 스크립트 (프로토콜 핸들러)
+            <p className="text-[11px] text-[#999]">
+              IE 자동 실행 + 로그인 스크립트
             </p>
           </div>
-          <CheckCircle2 size={16} className="text-green-500" />
+          <CheckCircle2 size={14} className="text-[#3CB043]" />
         </div>
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="w-8 h-8 rounded bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-mono font-bold">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-white hover:bg-[#F8F9FB] transition-colors">
+          <div className="w-7 h-7 rounded-md bg-[#E8EAF6] border border-[#0A2463] flex items-center justify-center text-[#0A2463] text-[10px] font-mono font-bold">
             REG
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-700">kyoboscan.reg</p>
-            <p className="text-xs text-gray-400">
-              kyoboscan:// 프로토콜 레지스트리 등록 파일
+            <p className="text-sm text-[#222]">scanner.reg</p>
+            <p className="text-[11px] text-[#999]">
+              프로토콜 레지스트리 등록 파일
             </p>
           </div>
-          <CheckCircle2 size={16} className="text-green-500" />
+          <CheckCircle2 size={14} className="text-[#3CB043]" />
         </div>
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="w-8 h-8 rounded bg-red-100 flex items-center justify-center text-red-700 text-xs font-mono font-bold">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-white hover:bg-[#F8F9FB] transition-colors">
+          <div className="w-7 h-7 rounded-md bg-[#FFF5F5] border border-[#DC3545] flex items-center justify-center text-[#DC3545] text-[10px] font-mono font-bold">
             BAT
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-700">uninstall.bat</p>
-            <p className="text-xs text-gray-400">
-              프로토콜 핸들러 제거 (필요 시 실행)
+            <p className="text-sm text-[#222]">uninstall.bat</p>
+            <p className="text-[11px] text-[#999]">
+              프로토콜 핸들러 제거 (필요 시)
             </p>
           </div>
-          <CheckCircle2 size={16} className="text-green-500" />
+          <CheckCircle2 size={14} className="text-[#3CB043]" />
         </div>
       </div>
     </div>

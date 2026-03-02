@@ -246,23 +246,26 @@ export function ScannerInterface() {
           fileItem.type === "image/png" ||
           fileItem.name.toLowerCase().endsWith(".png");
 
+        // 원본 파일명에서 확장자 제거 (basename)
+        const baseName = fileItem.name.replace(/\.[^.]+$/, "");
+
         if (isPdf) {
           addLog(`PDF 변환 중: ${fileItem.name}`);
           try {
             const pngBlobs = await pdfToPngs(fileItem.file, addLog);
             for (const blob of pngBlobs) {
-              const newName = `scan_${String(pngIndex).padStart(3, "0")}.png`;
+              const newName = `${baseName}_Scan_${String(pngIndex).padStart(2, "0")}.png`;
               pngFiles.push({ name: newName, blob });
               pngIndex++;
             }
           } catch (pdfErr: any) {
             addLog(`[오류] PDF 변환 실패: ${pdfErr.message}`);
-            const newName = `scan_${String(pngIndex).padStart(3, "0")}.pdf`;
+            const newName = `${baseName}_Scan_${String(pngIndex).padStart(2, "0")}.pdf`;
             pngFiles.push({ name: newName, blob: fileItem.file });
             pngIndex++;
           }
         } else if (isPng) {
-          const newName = `scan_${String(pngIndex).padStart(3, "0")}.png`;
+          const newName = `${baseName}_Scan_${String(pngIndex).padStart(2, "0")}.png`;
           pngFiles.push({ name: newName, blob: fileItem.file });
           addLog(`변환 완료: ${newName} (원본 PNG: ${fileItem.name})`);
           pngIndex++;
@@ -270,7 +273,7 @@ export function ScannerInterface() {
           addLog(`PNG 변환 중: ${fileItem.name}`);
           try {
             const pngBlob = await imageToPng(fileItem.file);
-            const newName = `scan_${String(pngIndex).padStart(3, "0")}.png`;
+            const newName = `${baseName}_Scan_${String(pngIndex).padStart(2, "0")}.png`;
             pngFiles.push({ name: newName, blob: pngBlob });
             addLog(`변환 완료: ${newName} (${fileItem.name} → PNG)`);
             pngIndex++;
@@ -278,7 +281,7 @@ export function ScannerInterface() {
             addLog(`[오류] 이미지 변환 실패: ${imgErr.message}`);
             const ext =
               fileItem.name.split(".").pop()?.toLowerCase() || "jpg";
-            const newName = `scan_${String(pngIndex).padStart(3, "0")}.${ext}`;
+            const newName = `${baseName}_Scan_${String(pngIndex).padStart(2, "0")}.${ext}`;
             pngFiles.push({ name: newName, blob: fileItem.file });
             pngIndex++;
           }
@@ -287,6 +290,22 @@ export function ScannerInterface() {
 
       const totalFiles = pngFiles.length;
       addLog(`총 ${totalFiles}개 PNG 파일 변환 완료`);
+
+      // 클립보드에 저장 경로 복사
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = 'C:\\ScanKBB\\scan';
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        addLog("클립보드에 저장 경로 복사 완료: C:\\ScanKBB\\scan");
+        toast.info("저장 경로(C:\\ScanKBB\\scan)가 클립보드에 복사되었습니다. 폴더 주소창에 Ctrl+V로 붙여넣기 하세요!", { duration: 5000 });
+      } catch (_) {
+        addLog("[안내] 클립보드 복사 실패 — 수동으로 경로를 입력하세요.");
+      }
 
       // 2) showDirectoryPicker로 폴더 선택 → 개별 파일 저장
       if (typeof (window as any).showDirectoryPicker === "function") {
@@ -372,8 +391,8 @@ export function ScannerInterface() {
 
     const timeout = setTimeout(() => {
       document.body.removeChild(iframe);
-      addLog("[안내] 프로토콜이 등록되지 않았습니다. 우측 패널에서 초기 설정을 먼저 진행하세요.");
-      toast.error("초기 설정이 필요합니다. 우측 패널의 [설치 패키지 다운로드]를 먼저 실행하세요.", { duration: 5000 });
+      addLog("[안내] 프로토콜이 등록되지 않았습니다. 좌측 패널에서 초기 설정을 먼저 진행하세요.");
+      toast.error("초기 설정이 필요합니다. 좌측 패널의 [설치 패키지 다운로드]를 먼저 실행하세요.", { duration: 5000 });
     }, 3000);
 
     const onBlur = () => {
@@ -396,48 +415,48 @@ export function ScannerInterface() {
   return (
     <div className="flex flex-col gap-5">
       {/* ─── 로그인 정보 ─── */}
-      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-5 py-3 border-b border-gray-200">
-          <h3 className="text-sm text-blue-800 flex items-center gap-2">
-            <User size={15} />
+      <div className="rounded-xl border border-[#D1D1D1] bg-white overflow-hidden">
+        <div className="bg-[#F0F4FA] px-5 py-3 border-b border-[#B8C9E0]">
+          <h3 className="text-sm text-[#0A2463] flex items-center gap-2">
+            <User size={15} className="text-[#0068B7]" />
             <span>로그인 정보</span>
-            <span className="text-red-500 text-xs">*필수</span>
+            <span className="text-[#DC3545] text-[10px] ml-1">*필수</span>
           </h3>
         </div>
         <div className="p-5">
           <div className="flex flex-col gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1.5">사번</label>
+              <label className="block text-xs text-[#666] mb-1.5">사번</label>
               <div className="relative">
-                <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#999]" />
                 <input
                   type="text"
                   maxLength={5}
                   placeholder="5자리 사번 입력"
-                  className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-all placeholder:text-gray-400"
+                  className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA]"
                   value={employeeId}
                   onChange={(e) =>
                     setEmployeeId(e.target.value.replace(/[^0-9]/g, ""))
                   }
                 />
                 {employeeId.length === 5 && (
-                  <CheckCircle2 size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500" />
+                  <CheckCircle2 size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3CB043]" />
                 )}
               </div>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1.5">비밀번호</label>
+              <label className="block text-xs text-[#666] mb-1.5">비밀번호</label>
               <div className="relative">
-                <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#999]" />
                 <input
                   type="password"
                   placeholder="비밀번호 입력"
-                  className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-all placeholder:text-gray-400"
+                  className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA]"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
                 {password.length > 0 && (
-                  <CheckCircle2 size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500" />
+                  <CheckCircle2 size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3CB043]" />
                 )}
               </div>
             </div>
@@ -446,12 +465,12 @@ export function ScannerInterface() {
       </div>
 
       {/* ─── 파일 업로드 (단일 파일) ─── */}
-      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-        <div className="bg-gradient-to-r from-orange-50 to-amber-50 px-5 py-3 border-b border-gray-200">
-          <h3 className="text-sm text-orange-800 flex items-center gap-2">
-            <Upload size={15} />
+      <div className="rounded-xl border border-[#D1D1D1] bg-white overflow-hidden">
+        <div className="bg-[#F0F4FA] px-5 py-3 border-b border-[#B8C9E0]">
+          <h3 className="text-sm text-[#0A2463] flex items-center gap-2">
+            <Upload size={15} className="text-[#0068B7]" />
             <span>파일 업로드</span>
-            <span className="text-xs text-gray-400 ml-auto">1개 파일만 가능</span>
+            <span className="text-[11px] text-[#999] ml-auto">1개 파일만 가능</span>
           </h3>
         </div>
         <div className="p-5">
@@ -471,22 +490,22 @@ export function ScannerInterface() {
               onClick={() => fileInputRef.current?.click()}
               className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
                 isDragOver
-                  ? "border-blue-500 bg-blue-50 scale-[1.01]"
-                  : "border-gray-300 hover:border-orange-400 hover:bg-orange-50/30"
+                  ? "border-[#0068B7] bg-[#E3F2FD] scale-[1.01]"
+                  : "border-[#D1D1D1] hover:border-[#0068B7] hover:bg-[#F0F4FA]"
               }`}
             >
               <div className={`w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center ${
-                isDragOver ? "bg-blue-100" : "bg-gray-100"
+                isDragOver ? "bg-[#BBDEFB]" : "bg-[#EDEFF3]"
               }`}>
                 <ImageIcon
                   size={22}
-                  className={isDragOver ? "text-blue-500" : "text-gray-400"}
+                  className={isDragOver ? "text-[#0068B7]" : "text-[#999]"}
                 />
               </div>
-              <p className="text-sm text-gray-600">
-                파일을 <strong>드래그 & 드롭</strong>하거나 <strong>클릭</strong>하여 선택
+              <p className="text-sm text-[#444]">
+                파일을 <strong className="text-[#0A2463]">드래그 & 드롭</strong>하거나 <strong className="text-[#0A2463]">클릭</strong>하여 선택
               </p>
-              <p className="text-xs text-gray-400 mt-1.5">
+              <p className="text-xs text-[#999] mt-1.5">
                 PNG, JPG, PDF → 모두 PNG로 변환됩니다
               </p>
             </div>
@@ -496,25 +515,25 @@ export function ScannerInterface() {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
-              <div className="flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 px-4 py-3 rounded-xl">
-                <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                  <FileText size={18} className="text-blue-600" />
+              <div className="flex items-center gap-3 bg-[#E3F2FD] border border-[#0068B7]/30 px-4 py-3 rounded-xl">
+                <div className="w-9 h-9 rounded-lg bg-[#0068B7]/10 flex items-center justify-center shrink-0">
+                  <FileText size={18} className="text-[#0068B7]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-800 truncate">{files[0].name}</p>
-                  <p className="text-xs text-gray-500">
-                    {files[0].size} · <span className="text-orange-600">PNG로 변환</span>
+                  <p className="text-sm text-[#222] truncate">{files[0].name}</p>
+                  <p className="text-xs text-[#666]">
+                    {files[0].size} · <span className="text-[#3CB043]">PNG로 변환</span>
                   </p>
                 </div>
                 <button
                   onClick={removeFile}
-                  className="w-7 h-7 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400 hover:text-red-500 hover:border-red-300 transition-colors shrink-0"
+                  className="w-7 h-7 rounded-full bg-white border border-[#D1D1D1] flex items-center justify-center text-[#999] hover:text-[#DC3545] hover:border-[#DC3545] transition-colors shrink-0"
                   title="파일 제거"
                 >
                   <X size={13} />
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-2 text-center">
+              <p className="text-[11px] text-[#999] mt-2 text-center">
                 다른 파일을 드래그하면 교체됩니다
               </p>
             </div>
@@ -530,19 +549,19 @@ export function ScannerInterface() {
           disabled={isSaving || files.length === 0}
           className={`flex flex-col items-center gap-1.5 px-4 py-4 rounded-xl text-sm transition-all ${
             isSaving || files.length === 0
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
-              : "bg-gradient-to-b from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-md hover:shadow-lg active:scale-[0.98]"
+              ? "bg-[#F0F0F0] text-[#BBB] cursor-not-allowed border border-[#D1D1D1]"
+              : "bg-[#3CB043] hover:bg-[#34A03B] text-white shadow-md hover:shadow-lg active:scale-[0.98]"
           }`}
         >
           {isSaving ? (
-            <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-[#DDD] border-t-[#999] rounded-full animate-spin" />
           ) : isSaved ? (
             <CheckCircle2 size={20} />
           ) : (
             <Archive size={20} />
           )}
           <span>{isSaving ? "변환 중..." : isSaved ? "저장 완료" : "파일 저장"}</span>
-          <span className={`text-xs ${isSaving || files.length === 0 ? "text-gray-300" : "text-orange-200"}`}>
+          <span className={`text-xs ${isSaving || files.length === 0 ? "text-[#CCC]" : "text-white/70"}`}>
             PNG 변환 → 폴더 저장
           </span>
         </button>
@@ -553,13 +572,13 @@ export function ScannerInterface() {
           disabled={!canExecute}
           className={`flex flex-col items-center gap-1.5 px-4 py-4 rounded-xl text-sm transition-all ${
             !canExecute
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
-              : "bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg active:scale-[0.98]"
+              ? "bg-[#F0F0F0] text-[#BBB] cursor-not-allowed border border-[#D1D1D1]"
+              : "bg-[#0068B7] hover:bg-[#005A9E] text-white shadow-md hover:shadow-lg active:scale-[0.98]"
           }`}
         >
           <Play size={20} fill="currentColor" />
           <span>IE 자동 로그인</span>
-          <span className={`text-xs ${!canExecute ? "text-gray-300" : "text-blue-200"}`}>
+          <span className={`text-xs ${!canExecute ? "text-[#CCC]" : "text-white/70"}`}>
             프로토콜 실행
           </span>
         </button>
@@ -567,28 +586,32 @@ export function ScannerInterface() {
         {/* 초기화 */}
         <button
           onClick={handleReset}
-          className="flex flex-col items-center gap-1.5 px-4 py-4 rounded-xl text-sm bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all active:scale-[0.98]"
+          className="flex flex-col items-center gap-1.5 px-4 py-4 rounded-xl text-sm bg-white border border-[#D1D1D1] text-[#555] hover:bg-[#F8F9FB] hover:border-[#BBB] transition-all active:scale-[0.98]"
         >
           <RefreshCcw size={20} />
           <span>전체 초기화</span>
-          <span className="text-xs text-gray-400">입력값 리셋</span>
+          <span className="text-xs text-[#AAA]">입력값 리셋</span>
         </button>
       </div>
 
+      {/* ─── 저장 경로 안내 ─── */}
+      
+
       {/* ─── 시스템 로그 ─── */}
-      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden flex-1 flex flex-col">
-        <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 bg-gradient-to-r from-gray-50 to-slate-50">
-          <AlertTriangle size={14} className="text-gray-500" />
-          <span className="text-xs text-gray-600">시스템 로그</span>
+      <div className="rounded-xl border border-[#D1D1D1] bg-white overflow-hidden flex flex-col">
+        <div className="px-4 py-2.5 border-b border-[#E8E8E8] flex items-center gap-2 bg-[#F8F9FB]">
+          <AlertTriangle size={14} className="text-[#999]" />
+          <span className="text-xs text-[#666]">시스템 로그</span>
         </div>
-        <div className="p-4 font-mono text-xs flex-1 overflow-y-auto bg-gray-50/50 min-h-[200px]">
+        <div className="p-4 font-mono text-xs overflow-y-auto bg-[#FAFBFC]" style={{ maxHeight: '162px' }}>
           {logMessages.length === 0 ? (
             <div className="space-y-1.5">
-              <p className="text-gray-400">사용 가이드:</p>
-              <p className="text-gray-500 pl-2">1. 사번(5자리)과 비밀번호를 입력하세요.</p>
-              <p className="text-gray-500 pl-2">2. 스캔 파일(PNG/JPG/PDF)을 업로드하세요.</p>
-              <p className="text-gray-500 pl-2">3. [파일 저장] — PNG 변환 → 폴더에 개별 저장</p>
-              <p className="text-gray-500 pl-2">4. [IE 자동 로그인] — 스캔 시스템 접속</p>
+              <p className="text-[#999]">사용 가이드:</p>
+              <p className="text-[#777] pl-2">1. 사번(5자리)과 비밀번호를 입력하세요.</p>
+              <p className="text-[#777] pl-2">2. 스캔 파일(PNG/JPG/PDF)을 업로드하세요.</p>
+              <p className="text-[#777] pl-2">3. [파일 저장] 클릭 → '다른 이름으로 저장' 창 팝업 → 폴더 주소창에 붙여넣기(Ctrl+V) 후 엔터 → 저장 완료</p>
+              <p className="text-[#0068B7] pl-4 text-[10px] italic">※ PNG 변환 시 저장 경로(C:\ScanKBB\scan)가 클립보드에 자동 복사되므로 바로 붙여넣기 하시면 됩니다.</p>
+              <p className="text-[#777] pl-2">4. [IE 자동 로그인] — 스캔 시스템 접속</p>
             </div>
           ) : (
             <div className="space-y-0.5">
@@ -597,13 +620,13 @@ export function ScannerInterface() {
                   key={idx}
                   className={`break-all ${
                     msg.includes("[오류]")
-                      ? "text-red-600"
+                      ? "text-[#DC3545]"
                       : msg.includes("완료")
-                      ? "text-green-600"
-                      : "text-gray-600"
+                      ? "text-[#3CB043]"
+                      : "text-[#555]"
                   }`}
                 >
-                  <span className="text-gray-400">› </span>{msg}
+                  <span className="text-[#BBB]">› </span>{msg}
                 </div>
               ))}
             </div>
@@ -612,14 +635,7 @@ export function ScannerInterface() {
       </div>
 
       {/* ─── 보안 안내 ─── */}
-      <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
-        <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
-        <p>
-          <strong>보안 안내:</strong> 이 도구는 내부 업무 자동화 용도입니다. URL
-          파라미터를 통해 인증 정보를 전달하므로 외부 네트워크에서의 사용에
-          주의하세요.
-        </p>
-      </div>
+      
     </div>
   );
 }
