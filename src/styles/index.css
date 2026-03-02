@@ -1,3 +1,58 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+/* Sonner 토스트 컨테이너: 화면 정중앙 기준으로 위로 쌓임 */
+[data-sonner-toaster] {
+  --offset: 0px !important;
+  position: fixed !important;
+  bottom: 50vh !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  top: auto !important;
+  right: auto !important;
+  z-index: 99999 !important;
+}
+
+/* 
+  핵심: 기존 토스트가 위로 쓰윽 부드럽게 밀려 올라가는 효과.
+  sonner는 --y 변수로 각 토스트 위치를 제어하므로,
+  transform 전환을 넉넉하게 잡아 천천히 자연스럽게 이동.
+*/
+[data-sonner-toast] {
+  transition:
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* 새 토스트 등장: 아래에서 위로 천천히 올라오며 나타남 */
+[data-sonner-toast][data-mounted="true"] {
+  animation: toast-slide-up-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+/* 토스트 퇴장: 위로 올라가며 천천히 사라짐 */
+[data-sonner-toast][data-removed="true"] {
+  animation: toast-slide-up-out 0.55s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+@keyframes toast-slide-up-in {
+  from {
+    opacity: 0;
+    margin-bottom: -28px;
+  }
+  to {
+    opacity: 1;
+    margin-bottom: 0px;
+  }
+}
+
+@keyframes toast-slide-up-out {
+  from {
+    opacity: 1;
+    margin-bottom: 0px;
+  }
+  to {
+    opacity: 0;
+    margin-bottom: 28px;
+  }
+}

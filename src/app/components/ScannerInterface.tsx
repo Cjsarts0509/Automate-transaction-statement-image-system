@@ -389,25 +389,12 @@ export function ScannerInterface() {
     iframe.src = protocolUrl;
     document.body.appendChild(iframe);
 
-    const timeout = setTimeout(() => {
-      document.body.removeChild(iframe);
-      addLog("[안내] 프로토콜이 등록되지 않았습니다. 좌측 패널에서 초기 설정을 먼저 진행하세요.");
-      toast.error("초기 설정이 필요합니다. 좌측 패널의 [설치 패키지 다운로드]를 먼저 실행하세요.", { duration: 5000 });
+    setTimeout(() => {
+      try { document.body.removeChild(iframe); } catch (_) {}
     }, 3000);
 
-    const onBlur = () => {
-      clearTimeout(timeout);
-      try { document.body.removeChild(iframe); } catch (_) {}
-      addLog("IE 자동 로그인 실행 완료!");
-      toast.success("IE가 열리고 자동 로그인됩니다.");
-      window.removeEventListener("blur", onBlur);
-    };
-    window.addEventListener("blur", onBlur);
-
-    setTimeout(() => {
-      window.removeEventListener("blur", onBlur);
-      try { document.body.removeChild(iframe); } catch (_) {}
-    }, 5000);
+    addLog("프로토콜 실행 요청 완료 — IE 창을 확인하세요.");
+    toast.success("IE 자동 로그인을 실행했습니다. IE 창을 확인하세요.", { duration: 4000 });
   };
 
   const canExecute = employeeId.length === 5 && password.length > 0;
@@ -586,22 +573,19 @@ export function ScannerInterface() {
         {/* 초기화 */}
         <button
           onClick={handleReset}
-          className="flex flex-col items-center gap-1.5 px-4 py-4 rounded-xl text-sm bg-white border border-[#D1D1D1] text-[#555] hover:bg-[#F8F9FB] hover:border-[#BBB] transition-all active:scale-[0.98]"
+          className="flex flex-col items-center gap-1.5 px-4 py-4 rounded-xl text-sm bg-[#DC3545] hover:bg-[#C82333] text-white shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
         >
           <RefreshCcw size={20} />
           <span>전체 초기화</span>
-          <span className="text-xs text-[#AAA]">입력값 리셋</span>
+          <span className="text-xs text-white/70">입력값 리셋</span>
         </button>
       </div>
 
-      {/* ─── 저장 경로 안내 ─── */}
-      
-
       {/* ─── 시스템 로그 ─── */}
       <div className="rounded-xl border border-[#D1D1D1] bg-white overflow-hidden flex flex-col">
-        <div className="px-4 py-2.5 border-b border-[#E8E8E8] flex items-center gap-2 bg-[#F8F9FB]">
-          <AlertTriangle size={14} className="text-[#999]" />
-          <span className="text-xs text-[#666]">시스템 로그</span>
+        <div className="bg-[#F0F4FA] px-5 py-3 border-b border-[#B8C9E0] flex items-center gap-2">
+          <AlertTriangle size={15} className="text-[#0068B7]" />
+          <span className="text-sm text-[#0A2463]">시스템 로그</span>
         </div>
         <div className="p-4 font-mono text-xs overflow-y-auto bg-[#FAFBFC]" style={{ maxHeight: '162px' }}>
           {logMessages.length === 0 ? (

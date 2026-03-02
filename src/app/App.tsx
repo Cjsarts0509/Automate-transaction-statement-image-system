@@ -61,23 +61,15 @@ export default function App() {
         </div>
       </div>
       <Toaster
-        position="top-center"
+        position="bottom-center"
         richColors
-        visibleToasts={1}
+        expand={true}
+        visibleToasts={5}
+        duration={3000}
         toastOptions={{
           style: {
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
+            minWidth: '320px',
           },
-        }}
-        style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          zIndex: 9999,
         }}
       />
     </div>
