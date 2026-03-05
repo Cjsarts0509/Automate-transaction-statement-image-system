@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import JSZip from "jszip";
-// bwip-js는 사용 시점에 동적 import (정적 import 시 컴포넌트 전체 crash 방지)
+import bwipjs from "bwip-js";
 
 // ── 타입 ──
 type ScanMode = "domestic" | "overseas";
@@ -148,7 +148,6 @@ function loadPdfJs(): Promise<any> {
 async function generateDataMatrixCanvas(data: string): Promise<HTMLCanvasElement> {
   const canvas = document.createElement("canvas");
   try {
-    const bwipjs = (await import("bwip-js")).default || (await import("bwip-js"));
     bwipjs.toCanvas(canvas, {
       bcid: "datamatrix",
       text: data,
