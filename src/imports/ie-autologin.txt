@@ -1,0 +1,80 @@
+' Scanner - IE Auto Login Launcher (Final Version)
+On Error Resume Next
+
+Dim url, id, pw
+If WScript.Arguments.Count = 0 Then WScript.Quit
+url = WScript.Arguments(0)
+
+' 1. 파라미터 파싱 (ID, PW 추출)
+Dim queryStr, params, i, kv
+If InStr(url, "?") > 0 Then
+    queryStr = Mid(url, InStr(url, "?") + 1)
+    If Right(queryStr, 1) = "/" Then queryStr = Left(queryStr, Len(queryStr) - 1)
+    params = Split(queryStr, "&")
+    For i = 0 To UBound(params)
+        kv = Split(params(i), "=")
+        If UBound(kv) >= 1 Then
+            If LCase(kv(0)) = "id" Then id = kv(1)
+            If LCase(kv(0)) = "pw" Then pw = kv(1)
+        End If
+    Next
+End If
+
+' URL Decode (간이)
+Function Decode(s)
+    s = Replace(s, "%3D", "=")
+    s = Replace(s, "%2B", "+")
+    Decode = s
+End Function
+id = Decode(id)
+pw = Decode(pw)
+
+' 2. IE 객체 생성 및 페이지 이동
+Dim IE
+Set IE = CreateObject("InternetExplorer.Application")
+IE.Visible = True
+IE.Navigate "http://iscan.kyobobook.co.kr/kbb/intro"
+
+' 3. 창 재연결 및 폼 찾기 (최대 20초 대기)
+Dim ShellApp, ShellWindows, win, objUser
+Dim maxWait, waitCount, found
+maxWait = 40 
+waitCount = 0
+found = False
+
+Do While waitCount < maxWait
+    ' 끊어진 창 재연결 시도
+    Set ShellApp = CreateObject("Shell.Application")
+    Set ShellWindows = ShellApp.Windows()
+    For Each win In ShellWindows
+        If InStr(LCase(win.FullName), "iexplore.exe") > 0 Then
+            If InStr(LCase(win.LocationURL), "kyobobook") > 0 Then
+                Set IE = win
+                Exit For
+            End If
+        End If
+    Next
+    
+    ' 로그인 폼(username) 확인
+    Set objUser = Nothing
+    Set objUser = IE.Document.getElementById("username")
+    
+    If Not objUser Is Nothing Then
+        found = True
+        Exit Do
+    End If
+    
+    waitCount = waitCount + 1
+    WScript.Sleep 500
+Loop
+
+' 4. 로그인 수행
+If found Then
+    IE.Document.getElementById("username").Value = id
+    IE.Document.getElementById("password").Value = pw
+    WScript.Sleep 200
+    IE.Document.getElementById("authUser").Click
+End If
+
+Set IE = Nothing
+Set ShellApp = Nothing

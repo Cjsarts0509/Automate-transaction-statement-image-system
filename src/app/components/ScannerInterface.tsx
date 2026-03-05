@@ -660,7 +660,7 @@ export function ScannerInterface() {
                 onClick={() => handleModeChange("overseas")}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs transition-all ${
                   scanMode === "overseas"
-                    ? "bg-[#0A2463] text-white shadow-sm"
+                    ? "bg-[#0068B7] text-white shadow-sm"
                     : "bg-[#F0F0F0] text-[#666] hover:bg-[#E0E0E0] border border-[#D1D1D1]"
                 }`}
               >
@@ -687,7 +687,7 @@ export function ScannerInterface() {
                       onChange={(e) =>
                         setDomesticFields((prev) => ({
                           ...prev,
-                          supplierCode: e.target.value.replace(/[^0-9]/g, "").slice(0, 7),
+                          supplierCode: e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 7),
                         }))
                       }
                     />
@@ -834,7 +834,7 @@ export function ScannerInterface() {
                       onChange={(e) =>
                         setOverseasFields((prev) => ({
                           ...prev,
-                          supplierCode: e.target.value.replace(/[^0-9]/g, "").slice(0, 7),
+                          supplierCode: e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 7),
                         }))
                       }
                     />
@@ -1019,7 +1019,7 @@ export function ScannerInterface() {
           <AlertTriangle size={15} className="text-[#0068B7]" />
           <span className="text-sm text-[#0A2463]">시스템 로그</span>
         </div>
-        <div className="p-4 font-mono text-xs overflow-y-auto bg-[#FAFBFC]" style={{ maxHeight: '162px' }}>
+        <div className="p-4 font-mono text-xs overflow-y-auto bg-[#FAFBFC]" style={{ height: '162px' }}>
           {logMessages.length === 0 ? (
             <div className="space-y-1.5">
               <p className="text-[#999]">사용 가이드:</p>
