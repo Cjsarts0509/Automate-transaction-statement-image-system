@@ -1,6 +1,7 @@
 import { useRef } from "react";
-import { Building2, Calendar, CheckCircle2, Hash } from "lucide-react";
+import { AlertCircle, Building2, Calendar, CheckCircle2, Hash } from "lucide-react";
 import { fromDateInputValue, toDateInputValue } from "../utils/file";
+import { isFutureDate, isValidBizNumber, isValidYYYYMMDD } from "../utils/validation";
 
 export interface DomesticFieldsValue {
   supplierCode: string;
@@ -15,6 +16,12 @@ interface Props {
 
 export function DomesticFields({ value, onChange }: Props) {
   const dateRef = useRef<HTMLInputElement>(null);
+
+  const bizNumberFilled = value.bizNumber.length === 10;
+  const bizNumberValid = bizNumberFilled && isValidBizNumber(value.bizNumber);
+  const dateFilled = value.firstRegDate.length === 8;
+  const dateValid = dateFilled && isValidYYYYMMDD(value.firstRegDate);
+  const dateFuture = dateValid && isFutureDate(value.firstRegDate);
 
   return (
     <div className="space-y-2">
@@ -52,7 +59,12 @@ export function DomesticFields({ value, onChange }: Props) {
             type="text"
             maxLength={10}
             placeholder="0000000000"
-            className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA] font-mono"
+            aria-invalid={bizNumberFilled && !bizNumberValid}
+            className={`w-full border bg-[#F8F9FB] rounded-lg pl-7 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] text-sm transition-all placeholder:text-[#AAA] font-mono ${
+              bizNumberFilled && !bizNumberValid
+                ? "border-[#DC3545] focus:border-[#DC3545]"
+                : "border-[#D1D1D1] focus:border-[#0068B7]"
+            }`}
             value={value.bizNumber}
             onChange={(e) =>
               onChange({
@@ -61,10 +73,16 @@ export function DomesticFields({ value, onChange }: Props) {
               })
             }
           />
-          {value.bizNumber.length === 10 && (
+          {bizNumberValid && (
             <CheckCircle2 size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#3CB043]" />
           )}
+          {bizNumberFilled && !bizNumberValid && (
+            <AlertCircle size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#DC3545]" />
+          )}
         </div>
+        {bizNumberFilled && !bizNumberValid && (
+          <p className="text-[10px] text-[#DC3545] mt-0.5">유효하지 않은 사업자번호입니다 (체크섬 불일치)</p>
+        )}
       </div>
       <div>
         <label className="block text-[11px] text-[#666] mb-1">
@@ -76,7 +94,12 @@ export function DomesticFields({ value, onChange }: Props) {
             type="text"
             maxLength={8}
             placeholder="20260101"
-            className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-16 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA] font-mono"
+            aria-invalid={dateFilled && !dateValid}
+            className={`w-full border bg-[#F8F9FB] rounded-lg pl-7 pr-16 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] text-sm transition-all placeholder:text-[#AAA] font-mono ${
+              dateFilled && !dateValid
+                ? "border-[#DC3545] focus:border-[#DC3545]"
+                : "border-[#D1D1D1] focus:border-[#0068B7]"
+            }`}
             value={value.firstRegDate}
             onChange={(e) =>
               onChange({
@@ -85,8 +108,11 @@ export function DomesticFields({ value, onChange }: Props) {
               })
             }
           />
-          {value.firstRegDate.length === 8 && (
+          {dateValid && (
             <CheckCircle2 size={13} className="absolute right-9 top-1/2 -translate-y-1/2 text-[#3CB043]" />
+          )}
+          {dateFilled && !dateValid && (
+            <AlertCircle size={13} className="absolute right-9 top-1/2 -translate-y-1/2 text-[#DC3545]" />
           )}
           <button
             type="button"
@@ -114,6 +140,12 @@ export function DomesticFields({ value, onChange }: Props) {
             }
           />
         </div>
+        {dateFilled && !dateValid && (
+          <p className="text-[10px] text-[#DC3545] mt-0.5">존재하지 않는 날짜입니다</p>
+        )}
+        {dateFuture && (
+          <p className="text-[10px] text-[#F59E0B] mt-0.5">⚠ 미래 날짜입니다. 확인해 주세요</p>
+        )}
       </div>
     </div>
   );

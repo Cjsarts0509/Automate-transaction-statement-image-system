@@ -25,6 +25,23 @@ function loadPdfJs(): Promise<any> {
   return _pdfjsPromise;
 }
 
+/** PDF 1페이지를 작은 thumbnail Data URL로 렌더링 */
+export async function renderPdfThumbnail(file: File, maxWidth = 240): Promise<string> {
+  const pdfjsLib = await loadPdfJs();
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const page = await pdf.getPage(1);
+  const baseViewport = page.getViewport({ scale: 1 });
+  const scale = Math.min(maxWidth / baseViewport.width, 1);
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext("2d")!;
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  return canvas.toDataURL("image/png");
+}
+
 /** PDF File → PNG Blob[] 변환 */
 export async function pdfToPngs(
   file: File,

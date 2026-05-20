@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Upload,
   Play,
@@ -24,9 +24,10 @@ import {
   mimeToExt,
 } from "../utils/file";
 import { imageToPng } from "../utils/image";
-import { pdfToPngs } from "../utils/pdf";
 import { overlayBarcodeOnPng } from "../utils/barcode";
+import { isValidBizNumber, isValidYYYYMMDD } from "../utils/validation";
 import { useClipboardPaste } from "../hooks/useClipboardPaste";
+import { makePreview } from "../utils/preview";
 import { DomesticFields, type DomesticFieldsValue } from "./DomesticFields";
 import { OverseasFields, type OverseasFieldsValue } from "./OverseasFields";
 import { LogPanel } from "./LogPanel";
@@ -68,11 +69,45 @@ export function ScannerInterface() {
     invoiceNumber: "",
   });
   const [files, setFiles] = useState<FileItem[]>([]);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [logMessages, setLogMessages] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 등록된 파일에서 thumbnail 생성 (라이프사이클: 새 파일/언마운트 시 revoke)
+  useEffect(() => {
+    if (files.length === 0) {
+      setPreviewUrl(null);
+      return;
+    }
+    let cancelled = false;
+    let revokable = false;
+    let url: string | null = null;
+    setPreviewLoading(true);
+    makePreview(files[0].file)
+      .then((result) => {
+        if (cancelled || !result) {
+          if (result?.revokable) URL.revokeObjectURL(result.url);
+          return;
+        }
+        url = result.url;
+        revokable = result.revokable;
+        setPreviewUrl(result.url);
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewUrl(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      if (revokable && url) URL.revokeObjectURL(url);
+    };
+  }, [files]);
 
   const addLog = useCallback((msg: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -106,12 +141,12 @@ export function ScannerInterface() {
     if (scanMode === "domestic") {
       return (
         domesticFields.supplierCode.length === 7 &&
-        domesticFields.bizNumber.length === 10 &&
-        domesticFields.firstRegDate.length === 8
+        isValidBizNumber(domesticFields.bizNumber) &&
+        isValidYYYYMMDD(domesticFields.firstRegDate)
       );
     } else {
       return (
-        overseasFields.invoiceDate.length === 8 &&
+        isValidYYYYMMDD(overseasFields.invoiceDate) &&
         overseasFields.supplierCode.length === 7 &&
         overseasFields.invoiceNumber.length === 14
       );
@@ -307,6 +342,7 @@ export function ScannerInterface() {
         if (isPdf) {
           addLog(`PDF 변환 중: ${fileItem.name}`);
           try {
+            const { pdfToPngs } = await import("../utils/pdf");
             const pngBlobs = await pdfToPngs(fileItem.file, addLog);
             for (const blob of pngBlobs) {
               const newName = `${baseName}_Scan_${String(pngIndex).padStart(2, "0")}.png`;
@@ -614,8 +650,18 @@ export function ScannerInterface() {
           ) : (
             <div onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
               <div className="flex items-center gap-3 bg-[#E3F2FD] border border-[#0068B7]/30 px-4 py-3 rounded-xl">
-                <div className="w-9 h-9 rounded-lg bg-[#0068B7]/10 flex items-center justify-center shrink-0">
-                  <FileText size={18} className="text-[#0068B7]" />
+                <div className="w-16 h-16 rounded-lg bg-white border border-[#0068B7]/20 flex items-center justify-center shrink-0 overflow-hidden">
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt={`${files[0].name} 미리보기`}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : previewLoading ? (
+                    <div className="w-5 h-5 border-2 border-[#BBDEFB] border-t-[#0068B7] rounded-full animate-spin" />
+                  ) : (
+                    <FileText size={22} className="text-[#0068B7]" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-[#222] truncate">{files[0].name}</p>

@@ -1,6 +1,7 @@
 import { useRef } from "react";
-import { Building2, Calendar, CheckCircle2, FileText, Hash } from "lucide-react";
+import { AlertCircle, Building2, Calendar, CheckCircle2, FileText, Hash } from "lucide-react";
 import { fromDateInputValue, toDateInputValue } from "../utils/file";
+import { isFutureDate, isValidYYYYMMDD } from "../utils/validation";
 
 export interface OverseasFieldsValue {
   invoiceDate: string;
@@ -16,6 +17,10 @@ interface Props {
 export function OverseasFields({ value, onChange }: Props) {
   const dateRef = useRef<HTMLInputElement>(null);
 
+  const dateFilled = value.invoiceDate.length === 8;
+  const dateValid = dateFilled && isValidYYYYMMDD(value.invoiceDate);
+  const dateFuture = dateValid && isFutureDate(value.invoiceDate);
+
   return (
     <div className="space-y-2">
       <div>
@@ -28,7 +33,12 @@ export function OverseasFields({ value, onChange }: Props) {
             type="text"
             maxLength={8}
             placeholder="20260101"
-            className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-16 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA] font-mono"
+            aria-invalid={dateFilled && !dateValid}
+            className={`w-full border bg-[#F8F9FB] rounded-lg pl-7 pr-16 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] text-sm transition-all placeholder:text-[#AAA] font-mono ${
+              dateFilled && !dateValid
+                ? "border-[#DC3545] focus:border-[#DC3545]"
+                : "border-[#D1D1D1] focus:border-[#0068B7]"
+            }`}
             value={value.invoiceDate}
             onChange={(e) =>
               onChange({
@@ -37,8 +47,11 @@ export function OverseasFields({ value, onChange }: Props) {
               })
             }
           />
-          {value.invoiceDate.length === 8 && (
+          {dateValid && (
             <CheckCircle2 size={13} className="absolute right-9 top-1/2 -translate-y-1/2 text-[#3CB043]" />
+          )}
+          {dateFilled && !dateValid && (
+            <AlertCircle size={13} className="absolute right-9 top-1/2 -translate-y-1/2 text-[#DC3545]" />
           )}
           <button
             type="button"
@@ -66,6 +79,12 @@ export function OverseasFields({ value, onChange }: Props) {
             }
           />
         </div>
+        {dateFilled && !dateValid && (
+          <p className="text-[10px] text-[#DC3545] mt-0.5">존재하지 않는 날짜입니다</p>
+        )}
+        {dateFuture && (
+          <p className="text-[10px] text-[#F59E0B] mt-0.5">⚠ 미래 날짜입니다. 확인해 주세요</p>
+        )}
       </div>
       <div>
         <label className="block text-[11px] text-[#666] mb-1">
