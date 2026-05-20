@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Upload,
   Play,
@@ -17,6 +17,7 @@ import {
   FileBarChart,
   Package,
   Globe,
+  ClipboardPaste,
 } from "lucide-react";
 import { toast } from "sonner";
 import JSZip from "jszip";
@@ -220,6 +221,41 @@ function fromDateInputValue(v: string): string {
   return v.replace(/-/g, "");
 }
 
+/** 클립보드 붙여넣기용 자동 파일명 생성 (clipboard-YYYYMMDD-HHmmss.확장자) */
+function makeClipboardFileName(ext: string): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const stamp =
+    `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}` +
+    `-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  return `clipboard-${stamp}.${ext}`;
+}
+
+/** MIME 타입에서 확장자 추출 (image/png → png) */
+function mimeToExt(mime: string): string {
+  if (mime === "image/jpeg") return "jpg";
+  const m = mime.match(/^image\/([a-z0-9]+)/i);
+  return m ? m[1].toLowerCase() : "png";
+}
+
+/** Blob을 File로 변환 (이름이 없는 클립보드 항목용) */
+function blobToFile(blob: Blob, name?: string): File {
+  const ext = mimeToExt(blob.type || "image/png");
+  return new File([blob], name || makeClipboardFileName(ext), {
+    type: blob.type || "image/png",
+  });
+}
+
+/** 문자열이 http(s) URL인지 검사 */
+function isHttpUrl(s: string): boolean {
+  try {
+    const u = new URL(s.trim());
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function ScannerInterface() {
   const [employeeId, setEmployeeId] = useState("");
   const [password, setPassword] = useState("");
@@ -336,6 +372,84 @@ export function ScannerInterface() {
     }
   };
 
+  // 이미지 URL을 fetch해서 File로 변환 후 등록 (CORS 실패 시 안내)
+  const processImageUrl = useCallback(
+    async (url: string) => {
+      addLog(`이미지 URL 다운로드 시도: ${url}`);
+      try {
+        const res = await fetch(url, { mode: "cors", credentials: "omit" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const ct = (blob.type || "").toLowerCase();
+        const isPdf = ct === "application/pdf" || /\.pdf($|\?)/i.test(url);
+        const isImage = ct.startsWith("image/") || /\.(png|jpe?g)($|\?)/i.test(url);
+        if (!isImage && !isPdf) {
+          toast.error("이미지/PDF가 아닌 URL입니다.");
+          addLog(`[오류] 지원하지 않는 콘텐츠 타입: ${ct || "unknown"}`);
+          return;
+        }
+        // URL 끝부분에서 파일명 추출 시도, 실패 시 자동 생성
+        let name = "";
+        try {
+          const u = new URL(url);
+          const last = u.pathname.split("/").pop() || "";
+          if (/\.(png|jpe?g|pdf)$/i.test(last)) name = last;
+        } catch {
+          /* ignore */
+        }
+        const ext = isPdf ? "pdf" : mimeToExt(ct || "image/png");
+        const file = blobToFile(blob, name || makeClipboardFileName(ext));
+        processFile(file);
+      } catch (err: any) {
+        const msg = err?.message || String(err);
+        toast.error(
+          "이미지 주소를 가져오지 못했습니다 (CORS). 이미지를 직접 복사해서 붙여넣어 주세요.",
+          { duration: 5000 }
+        );
+        addLog(`[오류] URL fetch 실패: ${msg}`);
+      }
+    },
+    [addLog, processFile]
+  );
+
+  // 클립보드 데이터 처리 (이미지 우선, 없으면 URL 텍스트)
+  const handleClipboardData = useCallback(
+    (data: DataTransfer | null) => {
+      if (!data) return false;
+      // 1) 이미지 항목 우선 처리
+      for (let i = 0; i < data.items.length; i++) {
+        const item = data.items[i];
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const blob = item.getAsFile();
+          if (blob) {
+            processFile(blobToFile(blob));
+            addLog(`클립보드 이미지 붙여넣기 (${item.type})`);
+            return true;
+          }
+        }
+      }
+      // 2) PDF 등 일반 파일도 허용
+      for (let i = 0; i < data.items.length; i++) {
+        const item = data.items[i];
+        if (item.kind === "file") {
+          const blob = item.getAsFile();
+          if (blob) {
+            processFile(blob);
+            return true;
+          }
+        }
+      }
+      // 3) 텍스트 → URL 이면 fetch
+      const text = data.getData("text/plain");
+      if (text && isHttpUrl(text)) {
+        processImageUrl(text.trim());
+        return true;
+      }
+      return false;
+    },
+    [addLog, processFile, processImageUrl]
+  );
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -359,6 +473,28 @@ export function ScannerInterface() {
       processFile(e.dataTransfer.files[0]);
     }
   };
+
+  // 전역 Ctrl+V: 입력 요소에 포커스가 없을 때만 이미지/URL 업로드로 처리
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      // 텍스트 입력 컨텍스트에서는 기본 동작(텍스트 붙여넣기) 유지
+      if (t) {
+        const tag = t.tagName;
+        if (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          t.isContentEditable
+        ) {
+          return;
+        }
+      }
+      const handled = handleClipboardData(e.clipboardData);
+      if (handled) e.preventDefault();
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [handleClipboardData]);
 
   const removeFile = () => {
     if (files.length > 0) {
@@ -923,6 +1059,13 @@ export function ScannerInterface() {
               </div>
               <p className="text-sm text-[#444]">
                 파일을 <strong className="text-[#0A2463]">드래그 & 드롭</strong>하거나 <strong className="text-[#0A2463]">클릭</strong>하여 선택
+              </p>
+              <p className="text-xs text-[#0068B7] mt-1.5 flex items-center justify-center gap-1">
+                <ClipboardPaste size={12} />
+                <span>
+                  캡쳐(Win+Shift+S)·이미지 복사·이미지 주소 복사 후{" "}
+                  <strong>Ctrl+V</strong>로도 등록 가능
+                </span>
               </p>
               <p className="text-xs text-[#999] mt-1">
                 PNG, JPG, PDF → 모두 PNG로 변환됩니다
