@@ -717,8 +717,11 @@ export function ScannerInterface() {
                 <span>Caps Lock이 켜져 있습니다</span>
               </div>
             </div>
-            <div className="mt-auto pt-2 border-t border-[#EEF1F5]">
-              <div className="text-[10px] text-[#999] mb-1.5">진행 상황</div>
+            <div className="mt-auto -mx-3 -mb-3 px-4 pt-3 pb-4 bg-[#F8FAFC] border-t border-[#E5E7EB]">
+              <div className="text-[11px] font-medium text-[#666] mb-2.5 flex items-center gap-1.5">
+                <FileBarChart size={12} className="text-[#0068B7]" />
+                <span>진행 상황</span>
+              </div>
               <ProgressStepper steps={steps} />
             </div>
           </div>
