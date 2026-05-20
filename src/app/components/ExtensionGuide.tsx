@@ -6,7 +6,6 @@ import {
   Package,
 } from "lucide-react";
 import { toast } from "sonner";
-import JSZip from "jszip";
 
 // VBS 런처 스크립트: 커스텀 프로토콜 URL에서 id/pw를 파싱하여 IE 자동 로그인 (Final Version)
 const LAUNCHER_VBS = [
@@ -186,6 +185,7 @@ export function ExtensionGuide() {
     setIsDownloading(true);
 
     try {
+      const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
       zip.file("install.bat", INSTALL_BAT);
       zip.file("ie-launcher.vbs", LAUNCHER_VBS);

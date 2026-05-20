@@ -1,7 +1,7 @@
-import bwipjs from "bwip-js";
-
-/** DataMatrix 바코드를 Canvas로 생성 */
+/** DataMatrix 바코드를 Canvas로 생성 (bwip-js를 동적 로드) */
 async function generateDataMatrixCanvas(data: string): Promise<HTMLCanvasElement> {
+  const mod = await import("bwip-js");
+  const bwipjs = mod.default;
   const canvas = document.createElement("canvas");
   try {
     bwipjs.toCanvas(canvas, {

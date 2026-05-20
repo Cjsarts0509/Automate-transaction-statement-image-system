@@ -6,18 +6,26 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   base: '/Automate-transaction-statement-image-system/',
   plugins: [
-    // The React and Tailwind plugins are both required for Make, even if
-    // Tailwind is not being actively used – do not remove them
     react(),
     tailwindcss(),
   ],
   resolve: {
     alias: {
-      // Alias @ to the src directory
       '@': path.resolve(__dirname, './src'),
     },
   },
-
-  // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // 저장 시점에만 필요한 무거운 라이브러리는 별도 청크로 분리
+          // (동적 import와 함께 사용 시 초기 로드에서 제외됨)
+          'vendor-react': ['react', 'react-dom', 'react-dom/client'],
+          'vendor-icons': ['lucide-react'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 800,
+  },
 })

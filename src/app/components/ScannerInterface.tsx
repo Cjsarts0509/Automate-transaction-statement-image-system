@@ -4,36 +4,32 @@ import {
   Play,
   RefreshCcw,
   FileText,
-  AlertTriangle,
   Lock,
   User,
   X,
   Archive,
   CheckCircle2,
   ImageIcon,
-  Calendar,
-  Hash,
-  Building2,
   FileBarChart,
   Package,
   Globe,
   ClipboardPaste,
 } from "lucide-react";
 import { toast } from "sonner";
-import JSZip from "jszip";
 import {
   blobToFile,
   formatFileSize,
-  fromDateInputValue,
   isHttpUrl,
   makeClipboardFileName,
   mimeToExt,
-  toDateInputValue,
 } from "../utils/file";
 import { imageToPng } from "../utils/image";
 import { pdfToPngs } from "../utils/pdf";
 import { overlayBarcodeOnPng } from "../utils/barcode";
 import { useClipboardPaste } from "../hooks/useClipboardPaste";
+import { DomesticFields, type DomesticFieldsValue } from "./DomesticFields";
+import { OverseasFields, type OverseasFieldsValue } from "./OverseasFields";
+import { LogPanel } from "./LogPanel";
 
 type ScanMode = "domestic" | "overseas";
 
@@ -44,18 +40,6 @@ interface FileItem {
   sizeBytes: number;
   type: string;
   file: File;
-}
-
-interface DomesticFields {
-  supplierCode: string; // 매입처코드 7자리
-  bizNumber: string; // 사업자번호 10자리
-  firstRegDate: string; // 최초등록일자 8자리
-}
-
-interface OverseasFields {
-  invoiceDate: string; // 인보이스발행일 8자리
-  supplierCode: string; // 매입처코드 7자리
-  invoiceNumber: string; // 인보이스관리번호 14자리
 }
 
 const ACCEPTED_TYPES = [
@@ -73,12 +57,12 @@ export function ScannerInterface() {
   const [employeeId, setEmployeeId] = useState("");
   const [password, setPassword] = useState("");
   const [scanMode, setScanMode] = useState<ScanMode>("domestic");
-  const [domesticFields, setDomesticFields] = useState<DomesticFields>({
+  const [domesticFields, setDomesticFields] = useState<DomesticFieldsValue>({
     supplierCode: "",
     bizNumber: "",
     firstRegDate: "",
   });
-  const [overseasFields, setOverseasFields] = useState<OverseasFields>({
+  const [overseasFields, setOverseasFields] = useState<OverseasFieldsValue>({
     invoiceDate: "",
     supplierCode: "",
     invoiceNumber: "",
@@ -89,9 +73,6 @@ export function ScannerInterface() {
   const [logMessages, setLogMessages] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const domesticDateRef = useRef<HTMLInputElement>(null);
-  const overseasDateRef = useRef<HTMLInputElement>(null);
 
   const addLog = useCallback((msg: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -410,8 +391,9 @@ export function ScannerInterface() {
         }
       }
 
-      // 폴백: ZIP 다운로드
+      // 폴백: ZIP 다운로드 (JSZip 동적 로드)
       addLog("ZIP 압축 중...");
+      const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
       for (const f of finalFiles) {
         zip.file(f.name, f.blob);
@@ -451,18 +433,13 @@ export function ScannerInterface() {
     const protocolUrl = `kyoboscan://login?id=${encodeURIComponent(employeeId)}&pw=${encodeURIComponent(password)}`;
     addLog(`프로토콜 호출: kyoboscan://login?id=${employeeId}&pw=****`);
 
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    iframe.src = protocolUrl;
-    document.body.appendChild(iframe);
-
-    setTimeout(() => {
-      try {
-        document.body.removeChild(iframe);
-      } catch {
-        /* ignore */
-      }
-    }, 3000);
+    // 커스텀 프로토콜은 비가시 anchor 클릭이 가장 신뢰성 있음 (iframe보다 표준적)
+    const a = document.createElement("a");
+    a.href = protocolUrl;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
     addLog("프로토콜 실행 요청 완료 — IE 창을 확인하세요.");
     toast.success("IE 자동 로그인을 실행했습니다. IE 창을 확인하세요.", { duration: 4000 });
@@ -557,203 +534,9 @@ export function ScannerInterface() {
             </div>
 
             {scanMode === "domestic" ? (
-              <div className="space-y-2">
-                <div>
-                  <label className="block text-[11px] text-[#666] mb-1">
-                    매입처코드 <span className="text-[#999]">(7자리)</span>
-                  </label>
-                  <div className="relative">
-                    <Building2 size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#999]" />
-                    <input
-                      type="text"
-                      maxLength={7}
-                      placeholder="0000000"
-                      className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA] font-mono"
-                      value={domesticFields.supplierCode}
-                      onChange={(e) =>
-                        setDomesticFields((prev) => ({
-                          ...prev,
-                          supplierCode: e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 7),
-                        }))
-                      }
-                    />
-                    {domesticFields.supplierCode.length === 7 && (
-                      <CheckCircle2 size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#3CB043]" />
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[11px] text-[#666] mb-1">
-                    사업자번호 <span className="text-[#999]">(10자리)</span>
-                  </label>
-                  <div className="relative">
-                    <Hash size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#999]" />
-                    <input
-                      type="text"
-                      maxLength={10}
-                      placeholder="0000000000"
-                      className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA] font-mono"
-                      value={domesticFields.bizNumber}
-                      onChange={(e) =>
-                        setDomesticFields((prev) => ({
-                          ...prev,
-                          bizNumber: e.target.value.replace(/[^0-9]/g, "").slice(0, 10),
-                        }))
-                      }
-                    />
-                    {domesticFields.bizNumber.length === 10 && (
-                      <CheckCircle2 size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#3CB043]" />
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[11px] text-[#666] mb-1">
-                    최초등록일자 <span className="text-[#999]">(YYYYMMDD)</span>
-                  </label>
-                  <div className="relative">
-                    <Hash size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#999]" />
-                    <input
-                      type="text"
-                      maxLength={8}
-                      placeholder="20260101"
-                      className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-16 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA] font-mono"
-                      value={domesticFields.firstRegDate}
-                      onChange={(e) =>
-                        setDomesticFields((prev) => ({
-                          ...prev,
-                          firstRegDate: e.target.value.replace(/[^0-9]/g, "").slice(0, 8),
-                        }))
-                      }
-                    />
-                    {domesticFields.firstRegDate.length === 8 && (
-                      <CheckCircle2 size={13} className="absolute right-9 top-1/2 -translate-y-1/2 text-[#3CB043]" />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        domesticDateRef.current?.focus();
-                        domesticDateRef.current?.click();
-                      }}
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#E3F2FD] transition-colors text-[#0068B7]"
-                      title="달력에서 선택"
-                    >
-                      <Calendar size={14} />
-                    </button>
-                    <input
-                      ref={domesticDateRef}
-                      type="date"
-                      className="absolute top-0 right-0 w-8 h-full opacity-0 cursor-pointer"
-                      tabIndex={-1}
-                      value={toDateInputValue(domesticFields.firstRegDate)}
-                      onChange={(e) =>
-                        setDomesticFields((prev) => ({
-                          ...prev,
-                          firstRegDate: fromDateInputValue(e.target.value),
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
+              <DomesticFields value={domesticFields} onChange={setDomesticFields} />
             ) : (
-              <div className="space-y-2">
-                <div>
-                  <label className="block text-[11px] text-[#666] mb-1">
-                    인보이스발행일 <span className="text-[#999]">(YYYYMMDD)</span>
-                  </label>
-                  <div className="relative">
-                    <Hash size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#999]" />
-                    <input
-                      type="text"
-                      maxLength={8}
-                      placeholder="20260101"
-                      className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-16 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA] font-mono"
-                      value={overseasFields.invoiceDate}
-                      onChange={(e) =>
-                        setOverseasFields((prev) => ({
-                          ...prev,
-                          invoiceDate: e.target.value.replace(/[^0-9]/g, "").slice(0, 8),
-                        }))
-                      }
-                    />
-                    {overseasFields.invoiceDate.length === 8 && (
-                      <CheckCircle2 size={13} className="absolute right-9 top-1/2 -translate-y-1/2 text-[#3CB043]" />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        overseasDateRef.current?.focus();
-                        overseasDateRef.current?.click();
-                      }}
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#E3F2FD] transition-colors text-[#0068B7]"
-                      title="달력에서 선택"
-                    >
-                      <Calendar size={14} />
-                    </button>
-                    <input
-                      ref={overseasDateRef}
-                      type="date"
-                      className="absolute top-0 right-0 w-8 h-full opacity-0 cursor-pointer"
-                      tabIndex={-1}
-                      value={toDateInputValue(overseasFields.invoiceDate)}
-                      onChange={(e) =>
-                        setOverseasFields((prev) => ({
-                          ...prev,
-                          invoiceDate: fromDateInputValue(e.target.value),
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[11px] text-[#666] mb-1">
-                    매입처코드 <span className="text-[#999]">(7자리)</span>
-                  </label>
-                  <div className="relative">
-                    <Building2 size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#999]" />
-                    <input
-                      type="text"
-                      maxLength={7}
-                      placeholder="0000000"
-                      className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA] font-mono"
-                      value={overseasFields.supplierCode}
-                      onChange={(e) =>
-                        setOverseasFields((prev) => ({
-                          ...prev,
-                          supplierCode: e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 7),
-                        }))
-                      }
-                    />
-                    {overseasFields.supplierCode.length === 7 && (
-                      <CheckCircle2 size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#3CB043]" />
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[11px] text-[#666] mb-1">
-                    인보이스관리번호 <span className="text-[#999]">(14자리)</span>
-                  </label>
-                  <div className="relative">
-                    <FileText size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#999]" />
-                    <input
-                      type="text"
-                      maxLength={14}
-                      placeholder="00000000000000"
-                      className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA] font-mono"
-                      value={overseasFields.invoiceNumber}
-                      onChange={(e) =>
-                        setOverseasFields((prev) => ({
-                          ...prev,
-                          invoiceNumber: e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 14),
-                        }))
-                      }
-                    />
-                    {overseasFields.invoiceNumber.length === 14 && (
-                      <CheckCircle2 size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#3CB043]" />
-                    )}
-                  </div>
-                </div>
-              </div>
+              <OverseasFields value={overseasFields} onChange={setOverseasFields} />
             )}
 
             {isModeFieldsComplete() && (
@@ -908,46 +691,7 @@ export function ScannerInterface() {
         </button>
       </div>
 
-      {/* ─── 시스템 로그 ─── */}
-      <div className="rounded-xl border border-[#D1D1D1] bg-white overflow-hidden flex flex-col">
-        <div className="bg-[#F0F4FA] px-5 py-2.5 border-b border-[#B8C9E0] flex items-center gap-2">
-          <AlertTriangle size={15} className="text-[#0068B7]" />
-          <span className="text-sm text-[#0A2463]">시스템 로그</span>
-        </div>
-        <div
-          className="p-4 font-mono text-xs overflow-y-auto bg-[#FAFBFC]"
-          style={{ height: "162px" }}
-        >
-          {logMessages.length === 0 ? (
-            <div className="space-y-1.5">
-              <p className="text-[#999]">사용 가이드:</p>
-              <p className="text-[#777] pl-2">1. 사번(5자리)과 비밀번호를 입력하세요.</p>
-              <p className="text-[#777] pl-2">2. 문구/음반 또는 해외문구 모드를 선택하고 정보를 입력하세요.</p>
-              <p className="text-[#777] pl-2">3. 스캔 파일을 업로드하세요 (드래그/클릭/Ctrl+V).</p>
-              <p className="text-[#777] pl-2">4. [파일 저장] 클릭 → DataMatrix 바코드 자동 삽입 → 폴더 저장</p>
-              <p className="text-[#777] pl-2">5. [IE 자동 로그인] — 스캔 시스템 접속</p>
-            </div>
-          ) : (
-            <div className="space-y-0.5">
-              {logMessages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`break-all ${
-                    msg.includes("[오류]")
-                      ? "text-[#DC3545]"
-                      : msg.includes("완료")
-                      ? "text-[#3CB043]"
-                      : "text-[#555]"
-                  }`}
-                >
-                  <span className="text-[#BBB]">› </span>
-                  {msg}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <LogPanel messages={logMessages} />
     </div>
   );
 }
