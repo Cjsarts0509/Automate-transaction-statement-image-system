@@ -11,7 +11,9 @@ async function generateDataMatrixCanvas(data: string): Promise<HTMLCanvasElement
       padding: 0,
     });
   } catch (e: any) {
-    throw new Error(`DataMatrix 생성 실패: ${e.message || e}`);
+    const wrapped = new Error(`DataMatrix 생성 실패: ${e?.message || e}`);
+    (wrapped as Error & { cause?: unknown }).cause = e;
+    throw wrapped;
   }
   return canvas;
 }
