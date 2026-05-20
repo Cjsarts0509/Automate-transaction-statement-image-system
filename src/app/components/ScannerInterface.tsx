@@ -35,6 +35,7 @@ import { makePreview } from "../utils/preview";
 import { DomesticFields, type DomesticFieldsValue } from "./DomesticFields";
 import { OverseasFields, type OverseasFieldsValue } from "./OverseasFields";
 import { LogPanel } from "./LogPanel";
+import ProgressStepper, { type Step } from "./ProgressStepper";
 
 type ScanMode = "domestic" | "overseas";
 
@@ -81,7 +82,10 @@ export function ScannerInterface() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
+  const [ieLoginExecuted, setIeLoginExecuted] = useState(false);
+  const [isPageDragOver, setIsPageDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pageDragCounterRef = useRef(0);
 
   // 등록된 파일에서 thumbnail 생성 (라이프사이클: 새 파일/언마운트 시 revoke)
   useEffect(() => {
@@ -136,6 +140,7 @@ export function ScannerInterface() {
     setScanMode(mode);
     setFiles([]);
     setIsSaved(false);
+    setIeLoginExecuted(false);
     setDomesticFields({ supplierCode: "", bizNumber: "", firstRegDate: "" });
     setOverseasFields({ invoiceDate: "", supplierCode: "", invoiceNumber: "" });
     addLog(`모드 전환: ${mode === "domestic" ? "문구/음반" : "해외문구"}`);
@@ -192,6 +197,7 @@ export function ScannerInterface() {
 
       setFiles([newFile]);
       setIsSaved(false);
+      setIeLoginExecuted(false);
       toast.success(`${file.name} 파일이 등록되었습니다`);
       addLog(`파일 등록: ${file.name} (${newFile.size})`);
     },
@@ -332,12 +338,59 @@ export function ScannerInterface() {
     return () => window.removeEventListener("paste", onPaste);
   }, [handleClipboardData]);
 
+  // 페이지 전체 드래그 오버레이: 카드 밖에서 파일을 드래그해도 드롭 가능
+  useEffect(() => {
+    const hasFiles = (e: DragEvent) =>
+      !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files");
+
+    const onEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      pageDragCounterRef.current += 1;
+      setIsPageDragOver(true);
+    };
+    const onOver = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+    };
+    const onLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      pageDragCounterRef.current = Math.max(0, pageDragCounterRef.current - 1);
+      if (pageDragCounterRef.current === 0) setIsPageDragOver(false);
+    };
+    const onDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      pageDragCounterRef.current = 0;
+      setIsPageDragOver(false);
+      const list = e.dataTransfer?.files;
+      if (list && list.length > 0) {
+        if (list.length > 1) {
+          toast.warning("파일은 1개만 업로드할 수 있습니다. 첫 번째 파일만 등록됩니다.");
+        }
+        processFile(list[0]);
+      }
+    };
+
+    window.addEventListener("dragenter", onEnter);
+    window.addEventListener("dragover", onOver);
+    window.addEventListener("dragleave", onLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragenter", onEnter);
+      window.removeEventListener("dragover", onOver);
+      window.removeEventListener("dragleave", onLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+  }, [processFile]);
+
   const removeFile = () => {
     if (files.length > 0) {
       addLog(`파일 제거: ${files[0].name}`);
     }
     setFiles([]);
     setIsSaved(false);
+    setIeLoginExecuted(false);
   };
 
   const handleReset = () => {
@@ -363,6 +416,7 @@ export function ScannerInterface() {
     setFiles([]);
     setLogMessages([]);
     setIsSaved(false);
+    setIeLoginExecuted(false);
     setDomesticFields({ supplierCode: "", bizNumber: "", firstRegDate: "" });
     setOverseasFields({ invoiceDate: "", supplierCode: "", invoiceNumber: "" });
     toast.info("모든 항목이 초기화되었습니다");
@@ -552,10 +606,30 @@ export function ScannerInterface() {
     setPassword("");
     setShowPassword(false);
     setCapsLockOn(false);
+    setIeLoginExecuted(true);
   };
 
   const canExecute = employeeId.length === 5 && password.length > 0;
   const canSave = files.length > 0 && isModeFieldsComplete();
+
+  // 진행 단계 (입력 → 파일 → 저장 → 로그인). IE 로그인 후 sticky.
+  const inputDone =
+    employeeId.length === 5 && password.length > 0 && isModeFieldsComplete();
+  const fileDone = files.length > 0;
+  const steps: Step[] = (() => {
+    const dones = [
+      inputDone || isSaved || ieLoginExecuted,
+      fileDone || isSaved || ieLoginExecuted,
+      isSaved || ieLoginExecuted,
+      ieLoginExecuted,
+    ];
+    const firstPending = dones.findIndex((d) => !d);
+    const labels = ["입력", "파일", "저장", "IE 로그인"];
+    return labels.map((label, i) => ({
+      label,
+      status: dones[i] ? "done" : i === firstPending ? "current" : "pending",
+    }));
+  })();
 
   return (
     <div className="flex flex-col gap-4">
@@ -632,6 +706,10 @@ export function ScannerInterface() {
                 <AlertTriangle size={10} />
                 <span>Caps Lock이 켜져 있습니다</span>
               </div>
+            </div>
+            <div className="mt-auto pt-2 border-t border-[#EEF1F5]">
+              <div className="text-[10px] text-[#999] mb-1.5">진행 상황</div>
+              <ProgressStepper steps={steps} />
             </div>
           </div>
         </div>
@@ -849,6 +927,17 @@ export function ScannerInterface() {
           <span className="text-xs text-white/70">입력값 리셋</span>
         </button>
       </div>
+
+      {/* 페이지 전체 드래그 오버레이 — dropzone 밖에서도 드롭 가능 */}
+      {isPageDragOver && (
+        <div className="fixed inset-0 z-[100] bg-[#0068B7]/15 backdrop-blur-[2px] pointer-events-none flex items-center justify-center animate-[fade-in_120ms_ease-out]">
+          <div className="bg-white border-2 border-dashed border-[#0068B7] rounded-2xl px-10 py-8 shadow-2xl flex flex-col items-center gap-3 animate-[pop_220ms_ease-out]">
+            <Upload size={56} className="text-[#0068B7]" />
+            <div className="text-lg font-medium text-[#0A2463]">파일을 여기에 드롭하세요</div>
+            <div className="text-xs text-[#666]">PNG · JPG · WebP · GIF · PDF</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

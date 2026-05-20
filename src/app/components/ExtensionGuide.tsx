@@ -204,7 +204,7 @@ export function ExtensionGuide() {
 
       setDownloaded(true);
       toast.success("ie-setup.zip 다운로드 완료!");
-    } catch (err) {
+    } catch {
       toast.error("ZIP 생성 중 오류가 발생했습니다");
     } finally {
       setIsDownloading(false);
