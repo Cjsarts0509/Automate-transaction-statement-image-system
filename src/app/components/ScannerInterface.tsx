@@ -644,8 +644,9 @@ export function ScannerInterface() {
         </div>
       </div>
 
-      {/* ─── 파일 업로드 (단일 파일) ─── */}
-      <div className="rounded-xl border border-[#D1D1D1] bg-white overflow-hidden">
+      {/* ─── 파일 업로드 + 시스템 로그 (좌우 2열) ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div className="rounded-xl border border-[#D1D1D1] bg-white overflow-hidden flex flex-col">
         <div className="bg-[#F0F4FA] px-5 py-2.5 border-b border-[#B8C9E0]">
           <h3 className="text-sm text-[#0A2463] flex items-center gap-2">
             <Upload size={15} className="text-[#0068B7]" />
@@ -653,7 +654,7 @@ export function ScannerInterface() {
             <span className="text-[11px] text-[#999] ml-auto">1개 파일만 가능</span>
           </h3>
         </div>
-        <div className="p-4">
+        <div className="p-3 flex-1 flex flex-col">
           <input
             ref={fileInputRef}
             type="file"
@@ -677,38 +678,31 @@ export function ScannerInterface() {
                   fileInputRef.current?.click();
                 }
               }}
-              className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-[#0068B7] ${
+              className={`border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-[#0068B7] h-full flex flex-col items-center justify-center ${
                 isDragOver
                   ? "border-[#0068B7] bg-[#E3F2FD] scale-[1.01]"
                   : "border-[#D1D1D1] hover:border-[#0068B7] hover:bg-[#F0F4FA]"
               }`}
             >
               <div
-                className={`w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center ${
+                className={`w-8 h-8 mb-1.5 rounded-full flex items-center justify-center ${
                   isDragOver ? "bg-[#BBDEFB]" : "bg-[#EDEFF3]"
                 }`}
               >
-                <ImageIcon size={20} className={isDragOver ? "text-[#0068B7]" : "text-[#999]"} />
+                <ImageIcon size={16} className={isDragOver ? "text-[#0068B7]" : "text-[#999]"} />
               </div>
-              <p className="text-sm text-[#444]">
+              <p className="text-xs text-[#444]">
                 파일을 <strong className="text-[#0A2463]">드래그 & 드롭</strong>하거나{" "}
                 <strong className="text-[#0A2463]">클릭</strong>하여 선택
               </p>
-              <p className="text-xs text-[#0068B7] mt-1.5 flex items-center justify-center gap-1">
-                <ClipboardPaste size={12} />
+              <p className="text-[11px] text-[#0068B7] mt-1 flex items-center justify-center gap-1">
+                <ClipboardPaste size={11} />
                 <span>
-                  캡쳐(Win+Shift+S)·이미지 복사·이미지 주소 복사 후 <strong>Ctrl+V</strong>로도 등록 가능
+                  캡쳐(Win+Shift+S)·이미지 복사 후 <strong>Ctrl+V</strong>로도 등록
                 </span>
               </p>
-              <p className="text-xs text-[#0068B7] mt-1.5 flex items-center justify-center gap-1">
-                <ClipboardPaste size={12} />
-                <span>
-                  캡쳐(Win+Shift+S)·이미지 복사·이미지 주소 복사 후{" "}
-                  <strong>Ctrl+V</strong>로도 등록 가능
-                </span>
-              </p>
-              <p className="text-xs text-[#999] mt-1">
-                PNG, JPG, WebP, GIF, PDF → 모두 PNG로 변환됩니다
+              <p className="text-[10px] text-[#999] mt-0.5">
+                PNG, JPG, WebP, GIF, PDF → 모두 PNG로 변환
               </p>
             </div>
           ) : (
@@ -751,8 +745,11 @@ export function ScannerInterface() {
         </div>
       </div>
 
-      {/* ─── 액션 버튼들 (주요 작업 2개 + 초기화 분리) ─── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <LogPanel messages={logMessages} />
+      </div>
+
+      {/* ─── 액션 버튼들 (저장 / 로그인 / 초기화 동급) ─── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <button
           onClick={handleSave}
           disabled={isSaving || !canSave}
@@ -802,8 +799,6 @@ export function ScannerInterface() {
           <span>전체 초기화</span>
         </button>
       </div>
-
-      <LogPanel messages={logMessages} />
     </div>
   );
 }
