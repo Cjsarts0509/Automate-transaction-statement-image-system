@@ -787,14 +787,16 @@ export function ScannerInterface() {
             프로토콜 실행
           </span>
         </button>
+      </div>
 
+      {/* 초기화는 별도 줄에 작게 분리 (실수 클릭 방지) */}
+      <div className="flex justify-end">
         <button
           onClick={handleReset}
-          className="flex flex-col items-center gap-1.5 px-4 py-4 rounded-xl text-sm bg-[#DC3545] hover:bg-[#C82333] text-white shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-[#DC3545] hover:bg-[#FFF0F1] border border-[#DC3545]/30 transition-colors"
         >
-          <RefreshCcw size={20} />
+          <RefreshCcw size={12} />
           <span>전체 초기화</span>
-          <span className="text-xs text-white/70">입력값 리셋</span>
         </button>
       </div>
     </div>
