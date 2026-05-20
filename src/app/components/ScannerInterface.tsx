@@ -630,19 +630,6 @@ export function ScannerInterface() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ─── 진행 상황 ─── */}
-      <div className="rounded-xl border border-[#D1D1D1] bg-white overflow-hidden">
-        <div className="bg-[#F0F4FA] px-4 py-2 border-b border-[#B8C9E0]">
-          <h3 className="text-sm text-[#0A2463] flex items-center gap-2">
-            <FileBarChart size={14} className="text-[#0068B7]" />
-            <span>진행 상황</span>
-          </h3>
-        </div>
-        <div className="px-6 py-4">
-          <ProgressStepper steps={steps} />
-        </div>
-      </div>
-
       {/* ─── 로그인 정보 + 스캔 정보 (반반 레이아웃) ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* 로그인 정보 */}
@@ -717,8 +704,11 @@ export function ScannerInterface() {
                 <span>Caps Lock이 켜져 있습니다</span>
               </div>
             </div>
-            <div className="mt-auto pt-2 border-t border-[#EEF1F5]">
-              <div className="text-[10px] text-[#999] mb-1.5">진행 상황</div>
+            <div className="mt-auto -mx-3 -mb-3 px-4 pt-3 pb-4 bg-[#F8FAFC] border-t border-[#E5E7EB]">
+              <div className="text-[11px] font-medium text-[#666] mb-2.5 flex items-center gap-1.5">
+                <FileBarChart size={12} className="text-[#0068B7]" />
+                <span>진행 상황</span>
+              </div>
               <ProgressStepper steps={steps} />
             </div>
           </div>
