@@ -14,6 +14,9 @@ import {
   Package,
   Globe,
   ClipboardPaste,
+  Eye,
+  EyeOff,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -76,6 +79,8 @@ export function ScannerInterface() {
   const [isSaved, setIsSaved] = useState(false);
   const [logMessages, setLogMessages] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLockOn, setCapsLockOn] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 등록된 파일에서 thumbnail 생성 (라이프사이클: 새 파일/언마운트 시 revoke)
@@ -353,6 +358,8 @@ export function ScannerInterface() {
     }
     setEmployeeId("");
     setPassword("");
+    setShowPassword(false);
+    setCapsLockOn(false);
     setFiles([]);
     setLogMessages([]);
     setIsSaved(false);
@@ -540,6 +547,11 @@ export function ScannerInterface() {
     } catch {
       /* localStorage 비활성화 환경 — 무시 */
     }
+
+    // 보안: 프로토콜 호출 직후 비밀번호 input/state 비움 (어깨 너머·자동완성 캐시 방지)
+    setPassword("");
+    setShowPassword(false);
+    setCapsLockOn(false);
   };
 
   const canExecute = employeeId.length === 5 && password.length > 0;
@@ -569,6 +581,8 @@ export function ScannerInterface() {
                   placeholder="5자리 사번"
                   data-field-chain="scan"
                   autoFocus
+                  autoComplete="off"
+                  inputMode="numeric"
                   className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA]"
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value.replace(/[^0-9]/g, ""))}
@@ -583,16 +597,40 @@ export function ScannerInterface() {
               <div className="relative">
                 <Lock size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#999]" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="비밀번호 입력"
                   data-field-chain="scan"
-                  className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA]"
+                  autoComplete="current-password"
+                  spellCheck={false}
+                  className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-14 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA]"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => setCapsLockOn(e.getModifierState("CapsLock"))}
+                  onKeyUp={(e) => setCapsLockOn(e.getModifierState("CapsLock"))}
+                  onBlur={() => setCapsLockOn(false)}
                 />
                 {password.length > 0 && (
-                  <CheckCircle2 size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#3CB043]" />
+                  <CheckCircle2 size={13} className="absolute right-9 top-1/2 -translate-y-1/2 text-[#3CB043]" />
                 )}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  tabIndex={-1}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#E3F2FD] transition-colors text-[#666]"
+                  aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
+                  title={showPassword ? "숨기기" : "표시"}
+                >
+                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              <div
+                className={`h-[14px] mt-0.5 text-[10px] leading-[14px] text-[#F59E0B] flex items-center gap-1 transition-opacity duration-150 ${
+                  capsLockOn && password.length > 0 ? "opacity-100" : "opacity-0"
+                }`}
+                aria-live="polite"
+              >
+                <AlertTriangle size={10} />
+                <span>Caps Lock이 켜져 있습니다</span>
               </div>
             </div>
           </div>
