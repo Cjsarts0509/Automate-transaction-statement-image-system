@@ -533,6 +533,13 @@ export function ScannerInterface() {
 
     addLog("프로토콜 실행 요청 완료 — IE 창을 확인하세요.");
     toast.success("IE 자동 로그인을 실행했습니다. IE 창을 확인하세요.", { duration: 4000 });
+
+    // 한 번이라도 IE 자동 로그인을 호출했다면 초기 설정이 끝났다고 간주
+    try {
+      localStorage.setItem("ie-setup-completed", "true");
+    } catch {
+      /* localStorage 비활성화 환경 — 무시 */
+    }
   };
 
   const canExecute = employeeId.length === 5 && password.length > 0;
@@ -626,11 +633,13 @@ export function ScannerInterface() {
               </button>
             </div>
 
-            {scanMode === "domestic" ? (
-              <DomesticFields value={domesticFields} onChange={setDomesticFields} />
-            ) : (
-              <OverseasFields value={overseasFields} onChange={setOverseasFields} />
-            )}
+            <div key={scanMode} className="anim-fade-in">
+              {scanMode === "domestic" ? (
+                <DomesticFields value={domesticFields} onChange={setDomesticFields} />
+              ) : (
+                <OverseasFields value={overseasFields} onChange={setOverseasFields} />
+              )}
+            </div>
 
             {isModeFieldsComplete() && (
               <div className="mt-2 px-2.5 py-1.5 bg-[#F0FAF0] border border-[#3CB043]/20 rounded-lg">
@@ -706,7 +715,12 @@ export function ScannerInterface() {
               </p>
             </div>
           ) : (
-            <div onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className="anim-fade-in"
+            >
               <div className="flex items-center gap-3 bg-[#E3F2FD] border border-[#0068B7]/30 px-4 py-3 rounded-xl">
                 <div className="w-16 h-16 rounded-lg bg-white border border-[#0068B7]/20 flex items-center justify-center shrink-0 overflow-hidden">
                   {previewUrl ? (
@@ -762,7 +776,7 @@ export function ScannerInterface() {
           {isSaving ? (
             <div className="w-5 h-5 border-2 border-[#DDD] border-t-[#999] rounded-full animate-spin" />
           ) : isSaved ? (
-            <CheckCircle2 size={20} />
+            <CheckCircle2 size={20} className="anim-pop" />
           ) : (
             <Archive size={20} />
           )}
@@ -787,16 +801,14 @@ export function ScannerInterface() {
             프로토콜 실행
           </span>
         </button>
-      </div>
 
-      {/* 초기화는 별도 줄에 작게 분리 (실수 클릭 방지) */}
-      <div className="flex justify-end">
         <button
           onClick={handleReset}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-[#DC3545] hover:bg-[#FFF0F1] border border-[#DC3545]/30 transition-colors"
+          className="flex flex-col items-center gap-1.5 px-4 py-4 rounded-xl text-sm bg-[#DC3545] hover:bg-[#C82333] text-white shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
         >
-          <RefreshCcw size={12} />
+          <RefreshCcw size={20} />
           <span>전체 초기화</span>
+          <span className="text-xs text-white/70">입력값 리셋</span>
         </button>
       </div>
     </div>
