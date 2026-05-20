@@ -6,7 +6,6 @@ import {
   Package,
 } from "lucide-react";
 import { toast } from "sonner";
-import JSZip from "jszip";
 
 // VBS 런처 스크립트: 커스텀 프로토콜 URL에서 id/pw를 파싱하여 IE 자동 로그인 (Final Version)
 const LAUNCHER_VBS = [
@@ -32,11 +31,36 @@ const LAUNCHER_VBS = [
   "    Next",
   "End If",
   "",
-  "' URL Decode (간이)",
+  "' URL Decode (전체 %XX 처리 + + → 공백)",
   "Function Decode(s)",
-  '    s = Replace(s, "%3D", "=")',
-  '    s = Replace(s, "%2B", "+")',
-  "    Decode = s",
+  "    Dim out, i, ch, hex",
+  '    If IsEmpty(s) Or IsNull(s) Then',
+  '        Decode = ""',
+  "        Exit Function",
+  "    End If",
+  '    out = ""',
+  "    i = 1",
+  "    Do While i <= Len(s)",
+  "        ch = Mid(s, i, 1)",
+  '        If ch = "%" And i + 2 <= Len(s) Then',
+  "            hex = Mid(s, i + 1, 2)",
+  "            On Error Resume Next",
+  '            out = out & Chr(CInt("&H" & hex))',
+  "            If Err.Number <> 0 Then",
+  "                out = out & ch",
+  "                Err.Clear",
+  "            End If",
+  "            On Error Goto 0",
+  "            i = i + 3",
+  '        ElseIf ch = "+" Then',
+  '            out = out & " "',
+  "            i = i + 1",
+  "        Else",
+  "            out = out & ch",
+  "            i = i + 1",
+  "        End If",
+  "    Loop",
+  "    Decode = out",
   "End Function",
   "id = Decode(id)",
   "pw = Decode(pw)",
@@ -86,6 +110,8 @@ const LAUNCHER_VBS = [
   '    IE.Document.getElementById("password").Value = pw',
   "    WScript.Sleep 200",
   '    IE.Document.getElementById("authUser").Click',
+  "Else",
+  '    MsgBox "로그인 폼을 찾지 못했습니다. IE 창을 확인해 주세요.", 48, "Scanner 자동 로그인"',
   "End If",
   "",
   "Set IE = Nothing",
@@ -159,6 +185,7 @@ export function ExtensionGuide() {
     setIsDownloading(true);
 
     try {
+      const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
       zip.file("install.bat", INSTALL_BAT);
       zip.file("ie-launcher.vbs", LAUNCHER_VBS);
