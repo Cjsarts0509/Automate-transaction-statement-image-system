@@ -612,14 +612,20 @@ export function ScannerInterface() {
   const canExecute = employeeId.length === 5 && password.length > 0;
   const canSave = files.length > 0 && isModeFieldsComplete();
 
-  // 진행 단계 (로그인 → 스캔 → 파일 → 저장 → IE 로그인). 다음 단계 완료 시 이전은 sticky.
+  // 진행 단계 (로그인 → 스캔 → 파일 → 저장 → IE 로그인).
+  // 각 단계는 자기 조건만으로 판정. 예외: 로그인 정보는 IE 로그인 후 비번이
+  // 자동 클리어돼도 후퇴하지 않도록 sticky 처리.
   const loginDone = employeeId.length === 5 && password.length > 0;
   const scanDone = isModeFieldsComplete();
   const fileDone = files.length > 0;
   const steps: Step[] = (() => {
-    const raw = [loginDone, scanDone, fileDone, isSaved, ieLoginExecuted];
-    // 뒤쪽 단계가 완료됐다면 앞 단계도 완료로 간주
-    const dones = raw.map((_, i) => raw.slice(i).some(Boolean));
+    const dones = [
+      loginDone || ieLoginExecuted,
+      scanDone,
+      fileDone,
+      isSaved,
+      ieLoginExecuted,
+    ];
     const firstPending = dones.findIndex((d) => !d);
     const labels = ["로그인 정보", "스캔 정보", "파일", "저장", "IE 로그인"];
     return labels.map((label, i) => ({
