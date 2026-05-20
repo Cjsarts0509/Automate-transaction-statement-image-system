@@ -756,15 +756,6 @@ export function ScannerInterface() {
                 <OverseasFields value={overseasFields} onChange={setOverseasFields} />
               )}
             </div>
-
-            {isModeFieldsComplete() && (
-              <div className="mt-2 px-2.5 py-1.5 bg-[#F0FAF0] border border-[#3CB043]/20 rounded-lg">
-                <p className="text-[10px] text-[#3CB043] flex items-center gap-1">
-                  <CheckCircle2 size={11} />
-                  바코드: <span className="font-mono text-[#0A2463]">{getBarcodeData()}</span>
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </div>
