@@ -27,6 +27,7 @@ import { imageToPng } from "../utils/image";
 import { overlayBarcodeOnPng } from "../utils/barcode";
 import { isValidBizNumber, isValidYYYYMMDD } from "../utils/validation";
 import { useClipboardPaste } from "../hooks/useClipboardPaste";
+import { useFieldChain } from "../hooks/useFieldChain";
 import { makePreview } from "../utils/preview";
 import { DomesticFields, type DomesticFieldsValue } from "./DomesticFields";
 import { OverseasFields, type OverseasFieldsValue } from "./OverseasFields";
@@ -116,13 +117,24 @@ export function ScannerInterface() {
 
   const handleModeChange = (mode: ScanMode) => {
     if (mode === scanMode) return;
+    const hasDomesticInput =
+      domesticFields.supplierCode || domesticFields.bizNumber || domesticFields.firstRegDate;
+    const hasOverseasInput =
+      overseasFields.invoiceDate || overseasFields.supplierCode || overseasFields.invoiceNumber;
+    const hasFile = files.length > 0;
+    if (hasDomesticInput || hasOverseasInput || hasFile) {
+      const ok = window.confirm(
+        "모드를 전환하면 현재 입력값과 업로드된 파일이 초기화됩니다.\n계속하시겠습니까?"
+      );
+      if (!ok) return;
+    }
     setScanMode(mode);
     setFiles([]);
     setIsSaved(false);
     setDomesticFields({ supplierCode: "", bizNumber: "", firstRegDate: "" });
     setOverseasFields({ invoiceDate: "", supplierCode: "", invoiceNumber: "" });
     addLog(`모드 전환: ${mode === "domestic" ? "문구/음반" : "해외문구"}`);
-    toast.info(`${mode === "domestic" ? "문구/음반" : "해외문구"} 모드로 전환되었습니다. 입력값이 초기화됩니다.`);
+    toast.info(`${mode === "domestic" ? "문구/음반" : "해외문구"} 모드로 전환되었습니다.`);
   };
 
   const getBarcodeData = (): string | null => {
@@ -264,6 +276,11 @@ export function ScannerInterface() {
 
   useClipboardPaste(handleClipboardData);
 
+  // Enter로 다음 필드 이동, 각 필드 채워지면 자동 진행, Ctrl+Enter로 저장
+  useFieldChain("scan", () => {
+    if (canSave && !isSaving) handleSave();
+  });
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -319,6 +336,21 @@ export function ScannerInterface() {
   };
 
   const handleReset = () => {
+    const hasAnything =
+      employeeId ||
+      password ||
+      files.length > 0 ||
+      logMessages.length > 0 ||
+      domesticFields.supplierCode ||
+      domesticFields.bizNumber ||
+      domesticFields.firstRegDate ||
+      overseasFields.invoiceDate ||
+      overseasFields.supplierCode ||
+      overseasFields.invoiceNumber;
+    if (hasAnything) {
+      const ok = window.confirm("모든 입력값과 로그가 초기화됩니다. 계속하시겠습니까?");
+      if (!ok) return;
+    }
     setEmployeeId("");
     setPassword("");
     setFiles([]);
@@ -528,6 +560,8 @@ export function ScannerInterface() {
                   type="text"
                   maxLength={5}
                   placeholder="5자리 사번"
+                  data-field-chain="scan"
+                  autoFocus
                   className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA]"
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value.replace(/[^0-9]/g, ""))}
@@ -544,6 +578,7 @@ export function ScannerInterface() {
                 <input
                   type="password"
                   placeholder="비밀번호 입력"
+                  data-field-chain="scan"
                   className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA]"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -716,8 +751,8 @@ export function ScannerInterface() {
         </div>
       </div>
 
-      {/* ─── 액션 버튼들 ─── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* ─── 액션 버튼들 (주요 작업 2개 + 초기화 분리) ─── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
           onClick={handleSave}
           disabled={isSaving || !canSave}
@@ -736,7 +771,7 @@ export function ScannerInterface() {
           )}
           <span>{isSaving ? "변환 중..." : isSaved ? "저장 완료" : "파일 저장"}</span>
           <span className={`text-xs ${isSaving || !canSave ? "text-[#CCC]" : "text-white/70"}`}>
-            PNG 변환 → 폴더 저장
+            PNG 변환 → 폴더 저장 · <kbd className="font-mono">Ctrl+Enter</kbd>
           </span>
         </button>
 
@@ -755,14 +790,16 @@ export function ScannerInterface() {
             프로토콜 실행
           </span>
         </button>
+      </div>
 
+      {/* 초기화는 별도 줄에 작게 분리 (실수 클릭 방지) */}
+      <div className="flex justify-end">
         <button
           onClick={handleReset}
-          className="flex flex-col items-center gap-1.5 px-4 py-4 rounded-xl text-sm bg-[#DC3545] hover:bg-[#C82333] text-white shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-[#DC3545] hover:bg-[#FFF0F1] border border-[#DC3545]/30 transition-colors"
         >
-          <RefreshCcw size={20} />
+          <RefreshCcw size={12} />
           <span>전체 초기화</span>
-          <span className="text-xs text-white/70">입력값 리셋</span>
         </button>
       </div>
 

@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { ScannerInterface } from "./components/ScannerInterface";
 import { ExtensionGuide } from "./components/ExtensionGuide";
 import { Toaster } from "sonner";
-import { Monitor, ScanLine } from "lucide-react";
+import { ChevronDown, Monitor, ScanLine } from "lucide-react";
 
 export default function App() {
+  const [setupOpen, setSetupOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-[#EDEFF3] p-4 sm:p-6 font-sans text-gray-900 flex items-center justify-center">
       <div className="max-w-6xl w-full space-y-5">
@@ -20,38 +23,46 @@ export default function App() {
           </div>
         </div>
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-stretch">
-          {/* Left Panel - 2/5 */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-[#D1D1D1] overflow-hidden flex flex-col">
-            <div className="bg-[#0A2463] px-5 py-3 flex items-center gap-3">
-              <div className="w-6 h-6 rounded bg-[#3CB043] flex items-center justify-center">
-                <Monitor size={13} className="text-white" />
-              </div>
-              <div>
-                <h2 className="text-white text-sm">IE 모드 초기 설정</h2>
-                <p className="text-[#8BA4D9] text-[10px]">최초 1회 설치</p>
-              </div>
+        {/* IE 모드 초기 설정 (접을 수 있음) */}
+        <div className="bg-white rounded-xl shadow-sm border border-[#D1D1D1] overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setSetupOpen((v) => !v)}
+            aria-expanded={setupOpen}
+            className="w-full bg-[#0A2463] px-5 py-3 flex items-center gap-3 hover:bg-[#0B2870] transition-colors"
+          >
+            <div className="w-6 h-6 rounded bg-[#3CB043] flex items-center justify-center">
+              <Monitor size={13} className="text-white" />
             </div>
-            <div className="p-5 flex-1">
+            <div className="text-left flex-1">
+              <h2 className="text-white text-sm">IE 모드 초기 설정</h2>
+              <p className="text-[#8BA4D9] text-[10px]">최초 1회 설치 — 평소엔 접어두세요</p>
+            </div>
+            <ChevronDown
+              size={18}
+              className={`text-white transition-transform ${setupOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+          {setupOpen && (
+            <div className="p-5">
               <ExtensionGuide />
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Right Panel - 3/5 */}
-          <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-[#D1D1D1] overflow-hidden flex flex-col">
-            <div className="bg-[#0068B7] px-5 py-3 flex items-center gap-3">
-              <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">
-                <ScanLine size={13} className="text-white" />
-              </div>
-              <div>
-                <h2 className="text-white text-sm">스캔시스템 인터페이스</h2>
-                <p className="text-[#A8D4F5] text-[10px]">파일 변환 · 업로드 · 로그인</p>
-              </div>
+        {/* 메인 스캐너 인터페이스 */}
+        <div className="bg-white rounded-xl shadow-sm border border-[#D1D1D1] overflow-hidden flex flex-col">
+          <div className="bg-[#0068B7] px-5 py-3 flex items-center gap-3">
+            <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">
+              <ScanLine size={13} className="text-white" />
             </div>
-            <div className="p-5 flex-1 flex flex-col">
-              <ScannerInterface />
+            <div>
+              <h2 className="text-white text-sm">스캔시스템 인터페이스</h2>
+              <p className="text-[#A8D4F5] text-[10px]">파일 변환 · 업로드 · 로그인</p>
             </div>
+          </div>
+          <div className="p-5 flex-1 flex flex-col">
+            <ScannerInterface />
           </div>
         </div>
 
@@ -68,7 +79,7 @@ export default function App() {
         duration={3000}
         toastOptions={{
           style: {
-            minWidth: '320px',
+            minWidth: "320px",
           },
         }}
       />
