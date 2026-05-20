@@ -49,6 +49,18 @@ export function DomesticFields({ value, onChange }: Props) {
             <CheckCircle2 size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#3CB043]" />
           )}
         </div>
+        <div
+          className={`h-[14px] mt-0.5 text-[10px] leading-[14px] text-[#999] transition-opacity duration-150 ${
+            value.supplierCode.length > 0 && value.supplierCode.length < 7
+              ? "opacity-100"
+              : "opacity-0"
+          }`}
+          aria-live="polite"
+        >
+          {value.supplierCode.length > 0 && value.supplierCode.length < 7
+            ? `${7 - value.supplierCode.length}자리 더 입력해 주세요`
+            : " "}
+        </div>
       </div>
       <div>
         <label className="block text-[11px] text-[#666] mb-1">
