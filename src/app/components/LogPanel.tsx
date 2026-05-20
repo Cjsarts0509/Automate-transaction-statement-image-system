@@ -6,15 +6,12 @@ interface Props {
 
 export function LogPanel({ messages }: Props) {
   return (
-    <div className="rounded-xl border border-[#D1D1D1] bg-white overflow-hidden flex flex-col">
+    <div className="rounded-xl border border-[#D1D1D1] bg-white overflow-hidden flex flex-col h-full">
       <div className="bg-[#F0F4FA] px-5 py-2.5 border-b border-[#B8C9E0] flex items-center gap-2">
         <AlertTriangle size={15} className="text-[#0068B7]" />
         <span className="text-sm text-[#0A2463]">시스템 로그</span>
       </div>
-      <div
-        className="p-4 font-mono text-xs overflow-y-auto bg-[#FAFBFC]"
-        style={{ height: "162px" }}
-      >
+      <div className="p-3 font-mono text-[11px] overflow-y-auto bg-[#FAFBFC] flex-1 min-h-[140px]">
         {messages.length === 0 ? (
           <div className="space-y-1.5">
             <p className="text-[#999]">사용 가이드:</p>
