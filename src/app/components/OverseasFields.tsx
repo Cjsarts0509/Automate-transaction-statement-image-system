@@ -80,12 +80,18 @@ export function OverseasFields({ value, onChange }: Props) {
             }
           />
         </div>
-        {dateFilled && !dateValid && (
-          <p className="text-[10px] text-[#DC3545] mt-0.5">존재하지 않는 날짜입니다</p>
-        )}
-        {dateFuture && (
-          <p className="text-[10px] text-[#F59E0B] mt-0.5">⚠ 미래 날짜입니다. 확인해 주세요</p>
-        )}
+        <div
+          className={`h-[14px] mt-0.5 text-[10px] leading-[14px] transition-opacity duration-150 ${
+            (dateFilled && !dateValid) || dateFuture ? "opacity-100" : "opacity-0"
+          } ${dateFilled && !dateValid ? "text-[#DC3545]" : "text-[#F59E0B]"}`}
+          aria-live="polite"
+        >
+          {dateFilled && !dateValid
+            ? "존재하지 않는 날짜입니다"
+            : dateFuture
+            ? "⚠ 미래 날짜입니다. 확인해 주세요"
+            : " "}
+        </div>
       </div>
       <div>
         <label className="block text-[11px] text-[#666] mb-1">

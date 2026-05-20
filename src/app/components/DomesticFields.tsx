@@ -82,9 +82,14 @@ export function DomesticFields({ value, onChange }: Props) {
             <AlertCircle size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#DC3545]" />
           )}
         </div>
-        {bizNumberFilled && !bizNumberValid && (
-          <p className="text-[10px] text-[#DC3545] mt-0.5">유효하지 않은 사업자번호입니다 (체크섬 불일치)</p>
-        )}
+        <div
+          className={`h-[14px] mt-0.5 text-[10px] leading-[14px] text-[#DC3545] transition-opacity duration-150 ${
+            bizNumberFilled && !bizNumberValid ? "opacity-100" : "opacity-0"
+          }`}
+          aria-live="polite"
+        >
+          {bizNumberFilled && !bizNumberValid ? "유효하지 않은 사업자번호입니다 (체크섬 불일치)" : " "}
+        </div>
       </div>
       <div>
         <label className="block text-[11px] text-[#666] mb-1">
@@ -143,12 +148,18 @@ export function DomesticFields({ value, onChange }: Props) {
             }
           />
         </div>
-        {dateFilled && !dateValid && (
-          <p className="text-[10px] text-[#DC3545] mt-0.5">존재하지 않는 날짜입니다</p>
-        )}
-        {dateFuture && (
-          <p className="text-[10px] text-[#F59E0B] mt-0.5">⚠ 미래 날짜입니다. 확인해 주세요</p>
-        )}
+        <div
+          className={`h-[14px] mt-0.5 text-[10px] leading-[14px] transition-opacity duration-150 ${
+            (dateFilled && !dateValid) || dateFuture ? "opacity-100" : "opacity-0"
+          } ${dateFilled && !dateValid ? "text-[#DC3545]" : "text-[#F59E0B]"}`}
+          aria-live="polite"
+        >
+          {dateFilled && !dateValid
+            ? "존재하지 않는 날짜입니다"
+            : dateFuture
+            ? "⚠ 미래 날짜입니다. 확인해 주세요"
+            : " "}
+        </div>
       </div>
     </div>
   );
