@@ -33,6 +33,7 @@ export function DomesticFields({ value, onChange }: Props) {
           <Building2 size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#999]" />
           <input
             type="text"
+            data-field-chain="scan"
             maxLength={7}
             placeholder="0000000"
             className="w-full border border-[#D1D1D1] bg-[#F8F9FB] rounded-lg pl-7 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0068B7] focus:border-[#0068B7] text-sm transition-all placeholder:text-[#AAA] font-mono"
@@ -57,6 +58,7 @@ export function DomesticFields({ value, onChange }: Props) {
           <Hash size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#999]" />
           <input
             type="text"
+            data-field-chain="scan"
             maxLength={10}
             placeholder="0000000000"
             aria-invalid={bizNumberFilled && !bizNumberValid}
@@ -92,6 +94,7 @@ export function DomesticFields({ value, onChange }: Props) {
           <Hash size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#999]" />
           <input
             type="text"
+            data-field-chain="scan"
             maxLength={8}
             placeholder="20260101"
             aria-invalid={dateFilled && !dateValid}
