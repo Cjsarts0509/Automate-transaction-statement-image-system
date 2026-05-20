@@ -54,6 +54,41 @@ const ACCEPTED_TYPES = [
 const ACCEPTED_EXT = ".png,.jpg,.jpeg,.webp,.gif,.pdf";
 const MAX_LOG_LINES = 200;
 
+/** 클립보드 붙여넣기용 자동 파일명 생성 (clipboard-YYYYMMDD-HHmmss.확장자) */
+function makeClipboardFileName(ext: string): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const stamp =
+    `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}` +
+    `-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  return `clipboard-${stamp}.${ext}`;
+}
+
+/** MIME 타입에서 확장자 추출 (image/png → png) */
+function mimeToExt(mime: string): string {
+  if (mime === "image/jpeg") return "jpg";
+  const m = mime.match(/^image\/([a-z0-9]+)/i);
+  return m ? m[1].toLowerCase() : "png";
+}
+
+/** Blob을 File로 변환 (이름이 없는 클립보드 항목용) */
+function blobToFile(blob: Blob, name?: string): File {
+  const ext = mimeToExt(blob.type || "image/png");
+  return new File([blob], name || makeClipboardFileName(ext), {
+    type: blob.type || "image/png",
+  });
+}
+
+/** 문자열이 http(s) URL인지 검사 */
+function isHttpUrl(s: string): boolean {
+  try {
+    const u = new URL(s.trim());
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function ScannerInterface() {
   const [employeeId, setEmployeeId] = useState("");
   const [password, setPassword] = useState("");
@@ -287,6 +322,28 @@ export function ScannerInterface() {
       processFile(e.dataTransfer.files[0]);
     }
   };
+
+  // 전역 Ctrl+V: 입력 요소에 포커스가 없을 때만 이미지/URL 업로드로 처리
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      // 텍스트 입력 컨텍스트에서는 기본 동작(텍스트 붙여넣기) 유지
+      if (t) {
+        const tag = t.tagName;
+        if (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          t.isContentEditable
+        ) {
+          return;
+        }
+      }
+      const handled = handleClipboardData(e.clipboardData);
+      if (handled) e.preventDefault();
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [handleClipboardData]);
 
   const removeFile = () => {
     if (files.length > 0) {
@@ -641,6 +698,13 @@ export function ScannerInterface() {
                 <ClipboardPaste size={12} />
                 <span>
                   캡쳐(Win+Shift+S)·이미지 복사·이미지 주소 복사 후 <strong>Ctrl+V</strong>로도 등록 가능
+                </span>
+              </p>
+              <p className="text-xs text-[#0068B7] mt-1.5 flex items-center justify-center gap-1">
+                <ClipboardPaste size={12} />
+                <span>
+                  캡쳐(Win+Shift+S)·이미지 복사·이미지 주소 복사 후{" "}
+                  <strong>Ctrl+V</strong>로도 등록 가능
                 </span>
               </p>
               <p className="text-xs text-[#999] mt-1">
