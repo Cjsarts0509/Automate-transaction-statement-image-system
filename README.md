@@ -1,28 +1,39 @@
-# Kyobo Book Scanner Automation Tool
+# 거래명세서 이미지시스템 자동화
 
-This project provides a React-based interface and a Chrome Extension to automate the login process for the Kyobo Book Scanner System.
+교보 북 스캐너 시스템(`iscan.kyobobook.co.kr`) 자동 로그인 + 거래명세서 이미지(PDF/PNG/JPG)를 DataMatrix 바코드와 함께 PNG로 변환·저장하는 사내 업무 도구입니다.
 
-## Project Structure
+## 구성
 
-- **React App**: Located in `/src/app`. This is the control panel where you enter credentials and manage files.
-- **Chrome Extension**: Located in `/src/chrome-extension`. This script must be installed in your browser to perform the automation on the target site.
+- **React 컨트롤 패널** (`src/app`): 사번/비밀번호 입력, 파일 업로드, PNG 변환·바코드 삽입, IE 자동 로그인 트리거
+- **VBS 런처 + 커스텀 프로토콜**: `kyoboscan://` 프로토콜을 통해 IE를 띄우고 폼을 자동으로 채워 로그인. `[IE 모드 초기 설정]` 패널에서 `ie-setup.zip`을 다운로드하여 1회만 설치합니다.
 
-## How to Use
+## 사용 방법
 
-1. **Install the Chrome Extension**:
-   - Go to `chrome://extensions` in your Chrome browser.
-   - Enable "Developer mode".
-   - Click "Load unpacked" and select the folder containing the extension files (you can copy the code from the "Extension Setup" tab in the app).
+1. **초기 설정 (최초 1회)**
+   - 좌측 패널에서 `ie-setup.zip` 다운로드 → 압축 해제 → `install.bat` 더블클릭
 
-2. **Run the React App**:
-   - Enter your 5-digit Employee ID and Password.
-   - (Optional) Upload files to simulate the workflow.
-   - Click **EXECUTE**.
+2. **일상 사용**
+   - 사번 5자리 + 비밀번호 입력
+   - 스캔 모드 선택(문구/음반 또는 해외문구) 및 필수 정보 입력
+   - 파일 업로드(드래그·클릭·`Ctrl+V` 모두 지원)
+     - `Win+Shift+S` 캡쳐 후 Ctrl+V
+     - 웹 이미지 우클릭 → "이미지 복사" 후 Ctrl+V
+     - 웹 이미지 우클릭 → "이미지 주소 복사" 후 Ctrl+V (CORS 허용 시)
+   - **파일 저장**: PNG 변환 + DataMatrix 바코드 자동 삽입 후 폴더 저장
+   - **IE 자동 로그인**: `kyoboscan://` 프로토콜로 IE 자동 실행 + 로그인
 
-3. **Automation**:
-   - The app will open the Kyobo Scanner System page in a new tab.
-   - The extension will automatically detect the credentials passed via the URL and log you in.
+## 개발
 
-## Security Note
+```bash
+npm install
+npm run dev        # 개발 서버 (http://localhost:5173)
+npm run build      # 프로덕션 빌드 → dist/
+npm run typecheck  # TypeScript 타입 체크
+```
 
-**Important:** This tool passes credentials via URL parameters for the extension to read. This is intended for specific internal automation workflows and should be used with caution. Do not use this method for highly sensitive public applications.
+`main` 브랜치 푸시 시 GitHub Pages에 자동 배포됩니다 (`.github/workflows/deploy.yml`).
+
+## 보안 메모
+
+- 비밀번호는 커스텀 프로토콜 URL에 임시로 포함되어 VBS 런처에 전달됩니다. 입력값은 별도로 저장되지 않습니다.
+- 사내 자동화 한정 도구이며 외부 배포 금지입니다.
