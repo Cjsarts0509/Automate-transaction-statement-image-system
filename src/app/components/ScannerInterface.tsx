@@ -469,6 +469,18 @@ export function ScannerInterface() {
     addLog("PNG 변환 시작...");
     addLog(`바코드 데이터: ${barcodeData}`);
 
+    // 클립보드 쓰기는 user activation + 페이지 포커스가 살아있을 때만 가능하다.
+    // 폴더 선택 dialog가 뜨거나 변환·저장이 길어지면 만료되므로 click 직후 즉시 시도한다.
+    const folderPath = "C:\\ScanKBB\\scan";
+    let pathCopied = false;
+    try {
+      await navigator.clipboard.writeText(folderPath);
+      pathCopied = true;
+      addLog(`클립보드에 복사됨: ${folderPath}`);
+    } catch (clipErr: any) {
+      addLog(`[안내] 클립보드 복사 실패: ${clipErr?.message || clipErr}`);
+    }
+
     try {
       const pngFiles: { name: string; blob: Blob }[] = [];
       let pngIndex = 1;
@@ -589,10 +601,22 @@ export function ScannerInterface() {
 
           setIsSaved(true);
           addLog(`폴더 저장 완료! (${totalFiles}개 PNG 파일, 바코드 포함)`);
-          toast.success(
-            `${totalFiles}개 PNG 파일이 ${usedRemembered ? "자동으로 " : ""}저장되었습니다 — 경로 클립보드에 복사됨`,
-            { duration: 4000 }
-          );
+          const successMsg = pathCopied
+            ? `${totalFiles}개 PNG 파일이 ${usedRemembered ? "자동으로 " : ""}저장되었습니다 — 경로 클립보드에 복사됨`
+            : `${totalFiles}개 PNG 파일이 ${usedRemembered ? "자동으로 " : ""}저장되었습니다`;
+          toast.success(successMsg, {
+            duration: 4000,
+            ...(pathCopied
+              ? {}
+              : {
+                  action: {
+                    label: "경로 복사",
+                    onClick: () => {
+                      navigator.clipboard.writeText(folderPath).catch(() => {});
+                    },
+                  },
+                }),
+          });
           setIsSaving(false);
           return;
         } catch (pickerErr: any) {
@@ -623,17 +647,26 @@ export function ScannerInterface() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      // 스캔 시스템 붙여넣기 편의: 권장 경로를 클립보드에 복사
-      try {
-        await navigator.clipboard.writeText("C:\\ScanKBB\\scan");
-        addLog("클립보드에 복사됨: C:\\ScanKBB\\scan");
-      } catch {
-        /* clipboard 권한 없는 경우 무시 */
-      }
-
       setIsSaved(true);
       addLog(`scan-files.zip 다운로드 완료 (${totalFiles}개 PNG 포함, 바코드 포함)`);
-      toast.success("scan-files.zip 다운로드 완료 — 경로 클립보드에 복사됨", { duration: 4000 });
+      toast.success(
+        pathCopied
+          ? "scan-files.zip 다운로드 완료 — 경로 클립보드에 복사됨"
+          : "scan-files.zip 다운로드 완료",
+        {
+          duration: 4000,
+          ...(pathCopied
+            ? {}
+            : {
+                action: {
+                  label: "경로 복사",
+                  onClick: () => {
+                    navigator.clipboard.writeText(folderPath).catch(() => {});
+                  },
+                },
+              }),
+        }
+      );
     } catch (err: any) {
       addLog(`[오류] 파일 저장 실패: ${err.message || err}`);
       toast.error("파일 저장 중 오류가 발생했습니다");
