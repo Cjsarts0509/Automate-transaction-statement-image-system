@@ -590,6 +590,15 @@ export function ScannerInterface() {
             addLog(`저장 완료: ${f.name}`);
           }
 
+          // 스캔 시스템 붙여넣기 편의: 권장 경로를 클립보드에 복사
+          const folderPath = "C:\\ScanKBB\\scan";
+          try {
+            await navigator.clipboard.writeText(folderPath);
+            addLog(`클립보드에 복사됨: ${folderPath}`);
+          } catch (clipErr: any) {
+            addLog(`[안내] 클립보드 복사 실패: ${clipErr?.message || clipErr}`);
+          }
+
           setIsSaved(true);
           addLog(`폴더 저장 완료! (${totalFiles}개 PNG 파일, 바코드 포함)`);
           const successMsg = pathCopied
