@@ -32,6 +32,12 @@ import { isValidBizNumber, isValidYYYYMMDD } from "../utils/validation";
 import { useClipboardPaste } from "../hooks/useClipboardPaste";
 import { useFieldChain } from "../hooks/useFieldChain";
 import { makePreview } from "../utils/preview";
+import {
+  clearDirHandle,
+  ensureWritePermission,
+  loadDirHandle,
+  saveDirHandle,
+} from "../utils/dirHandle";
 import { DomesticFields, type DomesticFieldsValue } from "./DomesticFields";
 import { OverseasFields, type OverseasFieldsValue } from "./OverseasFields";
 import { LogPanel } from "./LogPanel";
@@ -533,24 +539,60 @@ export function ScannerInterface() {
 
       if (typeof (window as any).showDirectoryPicker === "function") {
         try {
-          addLog("저장할 폴더를 선택하세요... (권장: C:\\ScanKBB\\scan)");
-          const dirHandle = await (window as any).showDirectoryPicker({
-            id: "scan-save-dir",
-            mode: "readwrite",
-            startIn: "downloads",
-          });
+          // 1) 이전에 보관된 폴더 핸들이 있다면 권한 확인 후 그대로 사용 (자동 저장)
+          let dirHandle = await loadDirHandle();
+          let usedRemembered = false;
+          if (dirHandle) {
+            const granted = await ensureWritePermission(dirHandle);
+            if (granted) {
+              usedRemembered = true;
+              addLog(`기억된 폴더 사용: ${dirHandle.name}`);
+            } else {
+              addLog("[안내] 기억된 폴더의 권한이 만료되었습니다. 다시 선택해 주세요.");
+              await clearDirHandle();
+              dirHandle = null;
+            }
+          }
+
+          // 2) 없으면 폴더 선택 dialog → 핸들 보관
+          if (!dirHandle) {
+            addLog("저장할 폴더를 선택하세요... (권장: C:\\ScanKBB\\scan)");
+            dirHandle = await (window as any).showDirectoryPicker({
+              id: "scan-save-dir",
+              mode: "readwrite",
+              startIn: "downloads",
+            });
+            try {
+              await saveDirHandle(dirHandle!);
+              addLog(`폴더를 기억합니다: ${dirHandle!.name} (다음부터 자동 저장)`);
+            } catch (persistErr: any) {
+              addLog(`[안내] 폴더 기억 실패: ${persistErr?.message || persistErr}`);
+            }
+          }
 
           for (const f of finalFiles) {
-            const fileHandle = await dirHandle.getFileHandle(f.name, { create: true });
+            const fileHandle = await dirHandle!.getFileHandle(f.name, { create: true });
             const writable = await fileHandle.createWritable();
             await writable.write(f.blob);
             await writable.close();
             addLog(`저장 완료: ${f.name}`);
           }
 
+          // 스캔 시스템 붙여넣기 편의: 권장 경로를 클립보드에 복사
+          const folderPath = "C:\\ScanKBB\\scan";
+          try {
+            await navigator.clipboard.writeText(folderPath);
+            addLog(`클립보드에 복사됨: ${folderPath}`);
+          } catch (clipErr: any) {
+            addLog(`[안내] 클립보드 복사 실패: ${clipErr?.message || clipErr}`);
+          }
+
           setIsSaved(true);
           addLog(`폴더 저장 완료! (${totalFiles}개 PNG 파일, 바코드 포함)`);
-          toast.success(`${totalFiles}개 PNG 파일이 폴더에 저장되었습니다!`);
+          toast.success(
+            `${totalFiles}개 PNG 파일이 ${usedRemembered ? "자동으로 " : ""}저장되었습니다 — 경로 클립보드에 복사됨`,
+            { duration: 4000 }
+          );
           setIsSaving(false);
           return;
         } catch (pickerErr: any) {
@@ -560,7 +602,7 @@ export function ScannerInterface() {
             setIsSaving(false);
             return;
           }
-          addLog("[안내] 폴더 선택을 사용할 수 없어 ZIP 다운로드로 전환합니다.");
+          addLog(`[안내] 폴더 저장 실패 (${pickerErr?.message || pickerErr}) — ZIP 다운로드로 전환합니다.`);
         }
       }
 
@@ -581,9 +623,17 @@ export function ScannerInterface() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
+      // 스캔 시스템 붙여넣기 편의: 권장 경로를 클립보드에 복사
+      try {
+        await navigator.clipboard.writeText("C:\\ScanKBB\\scan");
+        addLog("클립보드에 복사됨: C:\\ScanKBB\\scan");
+      } catch {
+        /* clipboard 권한 없는 경우 무시 */
+      }
+
       setIsSaved(true);
       addLog(`scan-files.zip 다운로드 완료 (${totalFiles}개 PNG 포함, 바코드 포함)`);
-      toast.success("scan-files.zip 다운로드 완료!");
+      toast.success("scan-files.zip 다운로드 완료 — 경로 클립보드에 복사됨", { duration: 4000 });
     } catch (err: any) {
       addLog(`[오류] 파일 저장 실패: ${err.message || err}`);
       toast.error("파일 저장 중 오류가 발생했습니다");
@@ -789,7 +839,7 @@ export function ScannerInterface() {
       </div>
 
       {/* ─── 파일 업로드 + 시스템 로그 (좌우 2열) ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:h-[280px]">
       <div className="rounded-xl border border-[#D1D1D1] bg-white overflow-hidden flex flex-col">
         <div className="bg-[#F0F4FA] px-5 py-2.5 border-b border-[#B8C9E0]">
           <h3 className="text-sm text-[#0A2463] flex items-center gap-2">
