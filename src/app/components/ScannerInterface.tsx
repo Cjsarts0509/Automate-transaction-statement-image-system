@@ -155,7 +155,9 @@ export function ScannerInterface() {
     } else {
       const { invoiceDate, supplierCode, invoiceNumber } = overseasFields;
       if (!invoiceDate || !supplierCode || !invoiceNumber) return null;
-      return `006${invoiceDate}${supplierCode}${invoiceNumber}`;
+      // 해외 바코드는 발행일을 YYMMDD(6자리)로 압축해 사용 (입력은 YYYYMMDD로 받음)
+      const yyMMdd = invoiceDate.slice(2);
+      return `006${yyMMdd}${supplierCode}${invoiceNumber}`;
     }
   };
 
@@ -338,10 +340,21 @@ export function ScannerInterface() {
     return () => window.removeEventListener("paste", onPaste);
   }, [handleClipboardData]);
 
-  // 페이지 전체 드래그 오버레이: 카드 밖에서 파일을 드래그해도 드롭 가능
+  // 페이지 전체 드래그 오버레이: 카드 밖에서 파일을 드래그해도 드롭 가능.
+  // - capture phase로 등록 → dropzone의 stopPropagation이 영향 없게 (counter 항상 일치)
+  // - drop이 dropzone 내부에서 일어났다면 dropzone이 직접 처리 → 여기서는 카운터/오버레이만 정리
+  // - ESC 안전망: 어떤 이유로든 overlay가 매달려 있으면 사용자가 닫을 수 있도록
   useEffect(() => {
     const hasFiles = (e: DragEvent) =>
       !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files");
+
+    const isInsideDropzone = (e: DragEvent) =>
+      !!(e.target as Element | null)?.closest?.("[data-dropzone]");
+
+    const resetOverlay = () => {
+      pageDragCounterRef.current = 0;
+      setIsPageDragOver(false);
+    };
 
     const onEnter = (e: DragEvent) => {
       if (!hasFiles(e)) return;
@@ -360,9 +373,13 @@ export function ScannerInterface() {
     };
     const onDrop = (e: DragEvent) => {
       if (!hasFiles(e)) return;
+      // dropzone이 처리할 케이스: 카운터/오버레이만 정리하고 파일 처리는 양보 (중복 방지)
+      if (isInsideDropzone(e)) {
+        resetOverlay();
+        return;
+      }
       e.preventDefault();
-      pageDragCounterRef.current = 0;
-      setIsPageDragOver(false);
+      resetOverlay();
       const list = e.dataTransfer?.files;
       if (list && list.length > 0) {
         if (list.length > 1) {
@@ -371,16 +388,21 @@ export function ScannerInterface() {
         processFile(list[0]);
       }
     };
+    const onEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") resetOverlay();
+    };
 
-    window.addEventListener("dragenter", onEnter);
-    window.addEventListener("dragover", onOver);
-    window.addEventListener("dragleave", onLeave);
-    window.addEventListener("drop", onDrop);
+    window.addEventListener("dragenter", onEnter, true);
+    window.addEventListener("dragover", onOver, true);
+    window.addEventListener("dragleave", onLeave, true);
+    window.addEventListener("drop", onDrop, true);
+    window.addEventListener("keydown", onEscape);
     return () => {
-      window.removeEventListener("dragenter", onEnter);
-      window.removeEventListener("dragover", onOver);
-      window.removeEventListener("dragleave", onLeave);
-      window.removeEventListener("drop", onDrop);
+      window.removeEventListener("dragenter", onEnter, true);
+      window.removeEventListener("dragover", onOver, true);
+      window.removeEventListener("dragleave", onLeave, true);
+      window.removeEventListener("drop", onDrop, true);
+      window.removeEventListener("keydown", onEscape);
     };
   }, [processFile]);
 
@@ -789,6 +811,7 @@ export function ScannerInterface() {
             <div
               role="button"
               tabIndex={0}
+              data-dropzone
               aria-label="파일을 드래그 & 드롭하거나 클릭하여 선택"
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -829,6 +852,7 @@ export function ScannerInterface() {
             </div>
           ) : (
             <div
+              data-dropzone
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}

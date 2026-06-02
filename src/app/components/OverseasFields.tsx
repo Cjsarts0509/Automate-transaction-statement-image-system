@@ -21,6 +21,22 @@ export function OverseasFields({ value, onChange }: Props) {
   const dateValid = dateFilled && isValidYYYYMMDD(value.invoiceDate);
   const dateFuture = dateValid && isFutureDate(value.invoiceDate);
 
+  const openDatePicker = () => {
+    const el = dateRef.current;
+    if (!el) return;
+    const anyEl = el as HTMLInputElement & { showPicker?: () => void };
+    if (typeof anyEl.showPicker === "function") {
+      try {
+        anyEl.showPicker();
+        return;
+      } catch {
+        /* showPicker가 user-activation 부족으로 실패하면 fallback */
+      }
+    }
+    el.focus();
+    el.click();
+  };
+
   return (
     <div className="space-y-2">
       <div>
@@ -56,11 +72,8 @@ export function OverseasFields({ value, onChange }: Props) {
           )}
           <button
             type="button"
-            onClick={() => {
-              dateRef.current?.focus();
-              dateRef.current?.click();
-            }}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#E3F2FD] transition-colors text-[#0068B7]"
+            onClick={openDatePicker}
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#E3F2FD] transition-colors text-[#0068B7]"
             title="달력에서 선택"
             aria-label="달력에서 날짜 선택"
           >
@@ -69,8 +82,9 @@ export function OverseasFields({ value, onChange }: Props) {
           <input
             ref={dateRef}
             type="date"
-            className="absolute top-0 right-0 w-8 h-full opacity-0 cursor-pointer"
+            className="sr-only"
             tabIndex={-1}
+            aria-hidden="true"
             value={toDateInputValue(value.invoiceDate)}
             onChange={(e) =>
               onChange({
