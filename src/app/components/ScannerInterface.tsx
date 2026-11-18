@@ -458,8 +458,9 @@ export function ScannerInterface() {
    * 저장 위치를 확보한다. 폴더 선택 창과 권한 요청은 클릭 직후(user activation이
    * 살아있는 몇 초 안)에만 허용되므로, 변환·바코드 생성보다 반드시 먼저 호출해야 한다.
    * 사용자가 폴더 선택을 취소하면 null.
+   * pathCopied: 호출 전에 경로를 클립보드에 넣었는지 — 폴더 선택 창 안내 문구에 사용.
    */
-  const acquireSaveTarget = async (): Promise<SaveTarget | null> => {
+  const acquireSaveTarget = async (pathCopied: boolean): Promise<SaveTarget | null> => {
     if (typeof (window as any).showDirectoryPicker !== "function") {
       addLog("[안내] 이 브라우저는 폴더 저장을 지원하지 않아 ZIP으로 저장합니다.");
       return { kind: "zip" };
@@ -474,7 +475,14 @@ export function ScannerInterface() {
         addLog("[안내] 기억된 폴더의 권한이 없어 폴더를 다시 선택합니다.");
         await clearDirHandle();
       }
+      // 최초 설정: 폴더 선택 창 위쪽 주소창에 경로를 붙여넣어 바로 이동하도록 안내
       addLog(`저장할 폴더를 선택하세요... (권장: ${SCAN_FOLDER_PATH})`);
+      toast.info(
+        pathCopied
+          ? `폴더 선택 창 위쪽 주소창을 클릭 → Ctrl+V → Enter → [폴더 선택]을 누르세요. (${SCAN_FOLDER_PATH} 복사됨)`
+          : `폴더 선택 창에서 ${SCAN_FOLDER_PATH} 폴더로 이동한 뒤 [폴더 선택]을 누르세요.`,
+        { duration: 15000 }
+      );
       const picked: FileSystemDirectoryHandle = await (window as any).showDirectoryPicker({
         id: "scan-save-dir",
         mode: "readwrite",
@@ -541,16 +549,18 @@ export function ScannerInterface() {
 
     setIsSaving(true);
     try {
-      // 1) 저장 위치 먼저 확보 (변환 뒤로 미루면 클릭 활성화가 만료돼 폴더 선택/권한 요청이 거부됨)
-      const target = await acquireSaveTarget();
+      // 1) 경로 복사를 가장 먼저 — 클릭 직후라 페이지 포커스와 user activation이 살아있다.
+      //    폴더 선택 창을 닫은 뒤에는 포커스가 빠져 브라우저가 복사를 거부하고,
+      //    최초 설정 때는 이 경로를 폴더 선택 창 주소창에 붙여넣어야 하므로 창보다 먼저여야 한다.
+      const pathCopied = await copySavePath();
+
+      // 2) 저장 위치 확보 (변환 뒤로 미루면 클릭 활성화가 만료돼 폴더 선택/권한 요청이 거부됨)
+      const target = await acquireSaveTarget(pathCopied);
       if (!target) {
         addLog("저장이 취소되었습니다.");
         toast.warning("저장이 취소되었습니다.");
         return;
       }
-
-      // 2) 위치가 정해진 뒤에 경로 복사 — 취소한 경우엔 클립보드를 건드리지 않는다
-      const pathCopied = await copySavePath();
 
       addLog("PNG 변환 시작...");
       addLog(`바코드 데이터: ${barcodeData}`);

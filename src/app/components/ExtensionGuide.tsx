@@ -225,6 +225,8 @@ const INSTALL_BAT = [
   "echo.",
   "",
   "mkdir C:\\ScanKBB 2>nul",
+  "mkdir C:\\ScanKBB\\scan 2>nul",
+  "echo [OK] C:\\ScanKBB\\scan folder ready",
   'copy /Y "%~dp0ie-launcher.vbs" C:\\ScanKBB\\ie-launcher.vbs >nul',
   "echo [OK] ie-launcher.vbs copied to C:\\ScanKBB",
   "",
@@ -379,7 +381,7 @@ export function ExtensionGuide() {
           <div className="flex-1">
             <p className="text-sm text-[#222]">install.bat</p>
             <p className="text-[11px] text-[#999]">
-              프로토콜 핸들러 등록 + VBS 복사
+              프로토콜 핸들러 등록 + VBS 복사 + 저장 폴더(C:\ScanKBB\scan) 생성
             </p>
           </div>
           <CheckCircle2 size={14} className="text-[#3CB043]" />
