@@ -24,13 +24,16 @@ export function useFieldChain(chainName: string, onSubmit?: () => void) {
       );
     }
 
-    function focusNext(current: HTMLInputElement) {
+    // submitAtEnd: Enter로 이동할 때만 true. 입력이 maxLength에 닿아 자동 이동하는
+    // 경우엔 마지막 필드에서 저장을 트리거하지 않는다 (의도치 않은 저장 + 이전 렌더
+    // 값으로 저장되는 문제 방지).
+    function focusNext(current: HTMLInputElement, submitAtEnd: boolean) {
       const all = inputs();
       const idx = all.indexOf(current);
       if (idx >= 0 && idx < all.length - 1) {
         all[idx + 1].focus();
         all[idx + 1].select?.();
-      } else if (idx === all.length - 1) {
+      } else if (idx === all.length - 1 && submitAtEnd) {
         onSubmitRef.current?.();
       }
     }
@@ -48,7 +51,7 @@ export function useFieldChain(chainName: string, onSubmit?: () => void) {
       }
       if (e.key === "Enter") {
         e.preventDefault();
-        focusNext(target);
+        focusNext(target, true);
       }
     }
 
@@ -57,8 +60,10 @@ export function useFieldChain(chainName: string, onSubmit?: () => void) {
       if (!target || !(target instanceof HTMLInputElement)) return;
       if (target.dataset.fieldChain !== chainName) return;
       const max = target.maxLength;
-      if (max > 0 && target.value.length >= max) {
-        focusNext(target);
+      // 커서가 끝에 있을 때만 자동 이동 — 가득 찬 필드의 중간 글자를 고칠 때 튀지 않게
+      const caretAtEnd = target.selectionStart === null || target.selectionStart >= max;
+      if (max > 0 && target.value.length >= max && caretAtEnd) {
+        focusNext(target, false);
       }
     }
 

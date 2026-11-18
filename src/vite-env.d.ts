@@ -9,5 +9,3 @@ declare module "bwip-js" {
   };
   export default bwipjs;
 }
-
-declare module "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/*";
