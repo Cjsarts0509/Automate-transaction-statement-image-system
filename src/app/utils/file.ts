@@ -10,13 +10,17 @@ export function mimeToExt(mime: string): string {
   return m ? m[1].toLowerCase() : "png";
 }
 
-export function makeClipboardFileName(ext: string): string {
-  const d = new Date();
+/** 현재 시각을 YYYYMMDD-HHmmss 문자열로 */
+export function timestamp(d: Date = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, "0");
-  const stamp =
+  return (
     `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}` +
-    `-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-  return `clipboard-${stamp}.${ext}`;
+    `-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+  );
+}
+
+export function makeClipboardFileName(ext: string): string {
+  return `clipboard-${timestamp()}.${ext}`;
 }
 
 export function blobToFile(blob: Blob, name?: string): File {

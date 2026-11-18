@@ -1,27 +1,25 @@
-/** pdf.js CDN 동적 로드 (한 번만) */
-let _pdfjsPromise: Promise<any> | null = null;
-function loadPdfJs(): Promise<any> {
+/**
+ * pdf.js를 앱 번들(지연 로드 청크)에서 불러온다. 이전에는 cdnjs에서 런타임 로드했는데,
+ * 사내망·방화벽에서 CDN이 막히면 PDF 변환 자체가 불가능했다. 이제 라이브러리와
+ * 워커 모두 같은 출처(GitHub Pages)에서 제공된다.
+ */
+type PdfJs = typeof import("pdfjs-dist");
+let _pdfjsPromise: Promise<PdfJs> | null = null;
+function loadPdfJs(): Promise<PdfJs> {
   if (_pdfjsPromise) return _pdfjsPromise;
-  _pdfjsPromise = new Promise((resolve, reject) => {
-    const existing = (window as any).pdfjsLib;
-    if (existing) {
-      existing.GlobalWorkerOptions.workerSrc =
-        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.9.155/pdf.worker.min.mjs";
-      return resolve(existing);
-    }
-    import(
-      /* @vite-ignore */
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.9.155/pdf.min.mjs"
-    )
-      .then((mod) => {
-        const lib = mod.default || mod;
-        lib.GlobalWorkerOptions.workerSrc =
-          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.9.155/pdf.worker.min.mjs";
-        (window as any).pdfjsLib = lib;
-        resolve(lib);
-      })
-      .catch(reject);
-  });
+  _pdfjsPromise = Promise.all([
+    import("pdfjs-dist"),
+    import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+  ])
+    .then(([lib, worker]) => {
+      lib.GlobalWorkerOptions.workerSrc = worker.default;
+      return lib;
+    })
+    .catch((err) => {
+      // 일시적 네트워크 실패 후 재시도할 수 있도록 캐시를 비운다
+      _pdfjsPromise = null;
+      throw err;
+    });
   return _pdfjsPromise;
 }
 

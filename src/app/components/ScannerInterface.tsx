@@ -25,6 +25,7 @@ import {
   isHttpUrl,
   makeClipboardFileName,
   mimeToExt,
+  timestamp,
 } from "../utils/file";
 import { imageToPng } from "../utils/image";
 import { overlayBarcodeOnPng } from "../utils/barcode";
@@ -37,6 +38,7 @@ import {
   ensureWritePermission,
   loadDirHandle,
   saveDirHandle,
+  uniqueFileName,
 } from "../utils/dirHandle";
 import { DomesticFields, type DomesticFieldsValue } from "./DomesticFields";
 import { OverseasFields, type OverseasFieldsValue } from "./OverseasFields";
@@ -64,6 +66,16 @@ const ACCEPTED_TYPES = [
 ];
 const ACCEPTED_EXT = ".png,.jpg,.jpeg,.webp,.gif,.pdf";
 const MAX_LOG_LINES = 200;
+// 스캔 시스템에 붙여넣을 권장 저장 경로 (저장 완료 시 클립보드로 복사)
+const SCAN_FOLDER_PATH = "C:\\ScanKBB\\scan";
+// IE 실행 감지: 이 시간 안에 창 포커스가 빠지지 않으면 설치 안내를 띄운다
+const LAUNCH_HINT_MS = 5000;
+// 그 뒤에도 늦게 열리는 IE를 성공으로 인정하는 최대 대기 시간
+const LAUNCH_WATCH_MS = 60000;
+
+type SaveTarget =
+  | { kind: "dir"; handle: FileSystemDirectoryHandle; remembered: boolean }
+  | { kind: "zip" };
 
 export function ScannerInterface() {
   const [employeeId, setEmployeeId] = useState("");
@@ -92,6 +104,20 @@ export function ScannerInterface() {
   const [isPageDragOver, setIsPageDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pageDragCounterRef = useRef(0);
+  // 진행 중인 IE 실행 감지(blur 리스너·타이머) 정리 함수
+  const launchWatchCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => launchWatchCleanupRef.current?.(), []);
+
+  // 저장 후 스캔 정보를 고치면 저장된 파일의 바코드와 달라지므로 "저장 완료"를 해제한다
+  const handleDomesticChange = (v: DomesticFieldsValue) => {
+    setDomesticFields(v);
+    setIsSaved(false);
+  };
+  const handleOverseasChange = (v: OverseasFieldsValue) => {
+    setOverseasFields(v);
+    setIsSaved(false);
+  };
 
   // 등록된 파일에서 thumbnail 생성 (라이프사이클: 새 파일/언마운트 시 revoke)
   useEffect(() => {
@@ -324,28 +350,6 @@ export function ScannerInterface() {
     }
   };
 
-  // 전역 Ctrl+V: 입력 요소에 포커스가 없을 때만 이미지/URL 업로드로 처리
-  useEffect(() => {
-    const onPaste = (e: ClipboardEvent) => {
-      const t = e.target as HTMLElement | null;
-      // 텍스트 입력 컨텍스트에서는 기본 동작(텍스트 붙여넣기) 유지
-      if (t) {
-        const tag = t.tagName;
-        if (
-          tag === "INPUT" ||
-          tag === "TEXTAREA" ||
-          t.isContentEditable
-        ) {
-          return;
-        }
-      }
-      const handled = handleClipboardData(e.clipboardData);
-      if (handled) e.preventDefault();
-    };
-    window.addEventListener("paste", onPaste);
-    return () => window.removeEventListener("paste", onPaste);
-  }, [handleClipboardData]);
-
   // 페이지 전체 드래그 오버레이: 카드 밖에서 파일을 드래그해도 드롭 가능.
   // - capture phase로 등록 → dropzone의 stopPropagation이 영향 없게 (counter 항상 일치)
   // - drop이 dropzone 내부에서 일어났다면 dropzone이 직접 처리 → 여기서는 카운터/오버레이만 정리
@@ -450,7 +454,77 @@ export function ScannerInterface() {
     toast.info("모든 항목이 초기화되었습니다");
   };
 
+  /**
+   * 저장 위치를 확보한다. 폴더 선택 창과 권한 요청은 클릭 직후(user activation이
+   * 살아있는 몇 초 안)에만 허용되므로, 변환·바코드 생성보다 반드시 먼저 호출해야 한다.
+   * 사용자가 폴더 선택을 취소하면 null.
+   */
+  const acquireSaveTarget = async (): Promise<SaveTarget | null> => {
+    if (typeof (window as any).showDirectoryPicker !== "function") {
+      addLog("[안내] 이 브라우저는 폴더 저장을 지원하지 않아 ZIP으로 저장합니다.");
+      return { kind: "zip" };
+    }
+    try {
+      const remembered = await loadDirHandle();
+      if (remembered) {
+        if (await ensureWritePermission(remembered)) {
+          addLog(`기억된 폴더 사용: ${remembered.name}`);
+          return { kind: "dir", handle: remembered, remembered: true };
+        }
+        addLog("[안내] 기억된 폴더의 권한이 없어 폴더를 다시 선택합니다.");
+        await clearDirHandle();
+      }
+      addLog(`저장할 폴더를 선택하세요... (권장: ${SCAN_FOLDER_PATH})`);
+      const picked: FileSystemDirectoryHandle = await (window as any).showDirectoryPicker({
+        id: "scan-save-dir",
+        mode: "readwrite",
+        startIn: "downloads",
+      });
+      try {
+        await saveDirHandle(picked);
+        addLog(`폴더를 기억합니다: ${picked.name} (다음부터 자동 저장)`);
+      } catch (persistErr: any) {
+        addLog(`[안내] 폴더 기억 실패: ${persistErr?.message || persistErr}`);
+      }
+      return { kind: "dir", handle: picked, remembered: false };
+    } catch (err: any) {
+      if (err?.name === "AbortError") return null;
+      addLog(`[안내] 폴더를 사용할 수 없어 ZIP으로 저장합니다 (${err?.message || err})`);
+      return { kind: "zip" };
+    }
+  };
+
+  const copySavePath = async (): Promise<boolean> => {
+    try {
+      await navigator.clipboard.writeText(SCAN_FOLDER_PATH);
+      addLog(`클립보드에 복사됨: ${SCAN_FOLDER_PATH}`);
+      return true;
+    } catch (clipErr: any) {
+      addLog(`[안내] 클립보드 복사 실패: ${clipErr?.message || clipErr}`);
+      return false;
+    }
+  };
+
+  const downloadZip = async (finalFiles: { name: string; blob: Blob }[]): Promise<string> => {
+    addLog("ZIP 압축 중...");
+    const { default: JSZip } = await import("jszip");
+    const zip = new JSZip();
+    for (const f of finalFiles) zip.file(f.name, f.blob);
+    const blob = await zip.generateAsync({ type: "blob" });
+    const zipName = `scan-files-${timestamp()}.zip`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = zipName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    return zipName;
+  };
+
   const handleSave = async () => {
+    if (isSaving) return;
     if (files.length === 0) {
       toast.error("저장할 파일이 없습니다. 먼저 파일을 업로드하세요.");
       return;
@@ -466,22 +540,21 @@ export function ScannerInterface() {
     }
 
     setIsSaving(true);
-    addLog("PNG 변환 시작...");
-    addLog(`바코드 데이터: ${barcodeData}`);
-
-    // 클립보드 쓰기는 user activation + 페이지 포커스가 살아있을 때만 가능하다.
-    // 폴더 선택 dialog가 뜨거나 변환·저장이 길어지면 만료되므로 click 직후 즉시 시도한다.
-    const folderPath = "C:\\ScanKBB\\scan";
-    let pathCopied = false;
     try {
-      await navigator.clipboard.writeText(folderPath);
-      pathCopied = true;
-      addLog(`클립보드에 복사됨: ${folderPath}`);
-    } catch (clipErr: any) {
-      addLog(`[안내] 클립보드 복사 실패: ${clipErr?.message || clipErr}`);
-    }
+      // 1) 저장 위치 먼저 확보 (변환 뒤로 미루면 클릭 활성화가 만료돼 폴더 선택/권한 요청이 거부됨)
+      const target = await acquireSaveTarget();
+      if (!target) {
+        addLog("저장이 취소되었습니다.");
+        toast.warning("저장이 취소되었습니다.");
+        return;
+      }
 
-    try {
+      // 2) 위치가 정해진 뒤에 경로 복사 — 취소한 경우엔 클립보드를 건드리지 않는다
+      const pathCopied = await copySavePath();
+
+      addLog("PNG 변환 시작...");
+      addLog(`바코드 데이터: ${barcodeData}`);
+
       const pngFiles: { name: string; blob: Blob }[] = [];
       let pngIndex = 1;
 
@@ -549,124 +622,55 @@ export function ScannerInterface() {
       const totalFiles = finalFiles.length;
       addLog(`총 ${totalFiles}개 PNG 파일 준비 완료 (바코드 포함)`);
 
-      if (typeof (window as any).showDirectoryPicker === "function") {
+      // 3) 확보한 위치에 저장. 폴더 쓰기가 실패하면 결과물을 잃지 않도록 ZIP으로 전환
+      let doneMessage: string;
+      let wroteToDir = false;
+      if (target.kind === "dir") {
         try {
-          // 1) 이전에 보관된 폴더 핸들이 있다면 권한 확인 후 그대로 사용 (자동 저장)
-          let dirHandle = await loadDirHandle();
-          let usedRemembered = false;
-          if (dirHandle) {
-            const granted = await ensureWritePermission(dirHandle);
-            if (granted) {
-              usedRemembered = true;
-              addLog(`기억된 폴더 사용: ${dirHandle.name}`);
-            } else {
-              addLog("[안내] 기억된 폴더의 권한이 만료되었습니다. 다시 선택해 주세요.");
-              await clearDirHandle();
-              dirHandle = null;
-            }
-          }
-
-          // 2) 없으면 폴더 선택 dialog → 핸들 보관
-          if (!dirHandle) {
-            addLog("저장할 폴더를 선택하세요... (권장: C:\\ScanKBB\\scan)");
-            dirHandle = await (window as any).showDirectoryPicker({
-              id: "scan-save-dir",
-              mode: "readwrite",
-              startIn: "downloads",
-            });
-            try {
-              await saveDirHandle(dirHandle!);
-              addLog(`폴더를 기억합니다: ${dirHandle!.name} (다음부터 자동 저장)`);
-            } catch (persistErr: any) {
-              addLog(`[안내] 폴더 기억 실패: ${persistErr?.message || persistErr}`);
-            }
-          }
-
           for (const f of finalFiles) {
-            const fileHandle = await dirHandle!.getFileHandle(f.name, { create: true });
+            const name = await uniqueFileName(target.handle, f.name);
+            if (name !== f.name) {
+              addLog(`같은 이름의 파일이 있어 다른 이름으로 저장: ${name}`);
+            }
+            const fileHandle = await target.handle.getFileHandle(name, { create: true });
             const writable = await fileHandle.createWritable();
             await writable.write(f.blob);
             await writable.close();
-            addLog(`저장 완료: ${f.name}`);
+            addLog(`저장 완료: ${name}`);
           }
-
-          // 스캔 시스템 붙여넣기 편의: 권장 경로를 클립보드에 복사
-          const folderPath = "C:\\ScanKBB\\scan";
-          try {
-            await navigator.clipboard.writeText(folderPath);
-            addLog(`클립보드에 복사됨: ${folderPath}`);
-          } catch (clipErr: any) {
-            addLog(`[안내] 클립보드 복사 실패: ${clipErr?.message || clipErr}`);
-          }
-
-          setIsSaved(true);
-          addLog(`폴더 저장 완료! (${totalFiles}개 PNG 파일, 바코드 포함)`);
-          const successMsg = pathCopied
-            ? `${totalFiles}개 PNG 파일이 ${usedRemembered ? "자동으로 " : ""}저장되었습니다 — 경로 클립보드에 복사됨`
-            : `${totalFiles}개 PNG 파일이 ${usedRemembered ? "자동으로 " : ""}저장되었습니다`;
-          toast.success(successMsg, {
-            duration: 4000,
-            ...(pathCopied
-              ? {}
-              : {
-                  action: {
-                    label: "경로 복사",
-                    onClick: () => {
-                      navigator.clipboard.writeText(folderPath).catch(() => {});
-                    },
-                  },
-                }),
-          });
-          setIsSaving(false);
-          return;
-        } catch (pickerErr: any) {
-          if (pickerErr.name === "AbortError") {
-            addLog("저장이 취소되었습니다.");
-            toast.warning("저장이 취소되었습니다.");
-            setIsSaving(false);
-            return;
-          }
-          addLog(`[안내] 폴더 저장 실패 (${pickerErr?.message || pickerErr}) — ZIP 다운로드로 전환합니다.`);
+          wroteToDir = true;
+        } catch (writeErr: any) {
+          addLog(`[오류] 폴더 저장 실패: ${writeErr?.message || writeErr} — ZIP으로 전환합니다.`);
+          // 폴더가 삭제됐거나 권한이 사라진 경우 다음 저장에서 다시 고르도록 기억을 지운다
+          if (target.remembered) await clearDirHandle();
         }
       }
 
-      // 폴백: ZIP 다운로드 (JSZip 동적 로드)
-      addLog("ZIP 압축 중...");
-      const { default: JSZip } = await import("jszip");
-      const zip = new JSZip();
-      for (const f of finalFiles) {
-        zip.file(f.name, f.blob);
+      if (wroteToDir) {
+        const how = target.kind === "dir" && target.remembered ? "자동으로 " : "";
+        doneMessage = `${totalFiles}개 PNG 파일이 ${how}저장되었습니다`;
+        addLog(`폴더 저장 완료! (${totalFiles}개 PNG 파일, 바코드 포함)`);
+      } else {
+        const zipName = await downloadZip(finalFiles);
+        doneMessage = `${zipName} 다운로드 완료`;
+        addLog(`${zipName} 다운로드 완료 (${totalFiles}개 PNG 포함, 바코드 포함)`);
       }
-      const blob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "scan-files.zip";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
 
       setIsSaved(true);
-      addLog(`scan-files.zip 다운로드 완료 (${totalFiles}개 PNG 포함, 바코드 포함)`);
-      toast.success(
-        pathCopied
-          ? "scan-files.zip 다운로드 완료 — 경로 클립보드에 복사됨"
-          : "scan-files.zip 다운로드 완료",
-        {
-          duration: 4000,
-          ...(pathCopied
-            ? {}
-            : {
-                action: {
-                  label: "경로 복사",
-                  onClick: () => {
-                    navigator.clipboard.writeText(folderPath).catch(() => {});
-                  },
-                },
-              }),
-        }
-      );
+      if (pathCopied) {
+        toast.success(`${doneMessage} — 경로 클립보드에 복사됨`, { duration: 4000 });
+      } else {
+        // 폴더 선택 창 직후엔 브라우저가 클립보드 쓰기를 막을 수 있어 수동 복사 버튼 제공
+        toast.success(doneMessage, {
+          duration: 10000,
+          action: {
+            label: "경로 복사",
+            onClick: () => {
+              navigator.clipboard.writeText(SCAN_FOLDER_PATH).catch(() => {});
+            },
+          },
+        });
+      }
     } catch (err: any) {
       addLog(`[오류] 파일 저장 실패: ${err.message || err}`);
       toast.error("파일 저장 중 오류가 발생했습니다");
@@ -689,6 +693,46 @@ export function ScannerInterface() {
     const protocolUrl = `kyoboscan://login?id=${encodeURIComponent(employeeId)}&pw=${encodeURIComponent(password)}`;
     addLog(`프로토콜 호출: kyoboscan://login?id=${employeeId}&pw=****`);
 
+    // 실행 감지: 프로토콜 핸들러가 설치돼 있으면 브라우저의 "외부 앱 열기" 확인창이나
+    // 새로 뜨는 IE 창으로 포커스가 넘어가 window blur가 발생한다. 핸들러가 없으면
+    // 브라우저는 아무 반응 없이 무시하므로 blur가 오지 않는다.
+    // → 설치 플래그 기록·비밀번호 비우기·진행 단계 완료는 blur가 확인됐을 때만 수행.
+    launchWatchCleanupRef.current?.();
+    let launched = false;
+    const onLaunched = () => {
+      if (launched) return;
+      launched = true;
+      cleanup();
+      addLog("프로토콜 실행 확인 — IE 창을 확인하세요.");
+      toast.success("IE 자동 로그인을 실행했습니다. IE 창을 확인하세요.", { duration: 4000 });
+      try {
+        localStorage.setItem("ie-setup-completed", "true");
+      } catch {
+        /* localStorage 비활성화 환경 — 무시 */
+      }
+      // 보안: IE로 넘어간 뒤 비밀번호 input/state 비움 (어깨 너머·자동완성 캐시 방지)
+      setPassword("");
+      setShowPassword(false);
+      setCapsLockOn(false);
+      setIeLoginExecuted(true);
+    };
+    const hintTimer = window.setTimeout(() => {
+      if (launched) return;
+      addLog("[안내] IE가 실행되지 않았다면 'IE 모드 초기 설정' 패키지를 먼저 설치하세요.");
+      toast.warning("IE 창이 열리지 않았다면 상단 'IE 모드 초기 설정'을 먼저 설치해 주세요.", {
+        duration: 6000,
+      });
+    }, LAUNCH_HINT_MS);
+    const watchTimer = window.setTimeout(() => cleanup(), LAUNCH_WATCH_MS);
+    const cleanup = () => {
+      window.clearTimeout(hintTimer);
+      window.clearTimeout(watchTimer);
+      window.removeEventListener("blur", onLaunched);
+      launchWatchCleanupRef.current = null;
+    };
+    launchWatchCleanupRef.current = cleanup;
+    window.addEventListener("blur", onLaunched);
+
     // 커스텀 프로토콜은 비가시 anchor 클릭이 가장 신뢰성 있음 (iframe보다 표준적)
     const a = document.createElement("a");
     a.href = protocolUrl;
@@ -696,22 +740,6 @@ export function ScannerInterface() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-
-    addLog("프로토콜 실행 요청 완료 — IE 창을 확인하세요.");
-    toast.success("IE 자동 로그인을 실행했습니다. IE 창을 확인하세요.", { duration: 4000 });
-
-    // 한 번이라도 IE 자동 로그인을 호출했다면 초기 설정이 끝났다고 간주
-    try {
-      localStorage.setItem("ie-setup-completed", "true");
-    } catch {
-      /* localStorage 비활성화 환경 — 무시 */
-    }
-
-    // 보안: 프로토콜 호출 직후 비밀번호 input/state 비움 (어깨 너머·자동완성 캐시 방지)
-    setPassword("");
-    setShowPassword(false);
-    setCapsLockOn(false);
-    setIeLoginExecuted(true);
   };
 
   const canExecute = employeeId.length === 5 && password.length > 0;
@@ -862,9 +890,9 @@ export function ScannerInterface() {
 
             <div key={scanMode} className="anim-fade-in">
               {scanMode === "domestic" ? (
-                <DomesticFields value={domesticFields} onChange={setDomesticFields} />
+                <DomesticFields value={domesticFields} onChange={handleDomesticChange} />
               ) : (
-                <OverseasFields value={overseasFields} onChange={setOverseasFields} />
+                <OverseasFields value={overseasFields} onChange={handleOverseasChange} />
               )}
             </div>
           </div>

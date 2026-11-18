@@ -69,6 +69,37 @@ export async function clearDirHandle(): Promise<void> {
   }
 }
 
+async function nameTaken(dir: FileSystemDirectoryHandle, name: string): Promise<boolean> {
+  try {
+    await dir.getFileHandle(name);
+    return true;
+  } catch (e: any) {
+    if (e?.name === "NotFoundError") return false;
+    // 같은 이름의 하위 폴더가 있는 경우 등 — 사용 중인 이름으로 취급
+    if (e?.name === "TypeMismatchError") return true;
+    throw e;
+  }
+}
+
+/**
+ * 폴더에 같은 이름의 파일이 있으면 "이름 (2).png", "이름 (3).png" … 처럼
+ * 비어 있는 이름을 찾아 반환한다. 기존 거래명세서 파일을 덮어쓰지 않기 위함.
+ */
+export async function uniqueFileName(
+  dir: FileSystemDirectoryHandle,
+  name: string
+): Promise<string> {
+  if (!(await nameTaken(dir, name))) return name;
+  const dot = name.lastIndexOf(".");
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : "";
+  for (let n = 2; n < 1000; n++) {
+    const candidate = `${base} (${n})${ext}`;
+    if (!(await nameTaken(dir, candidate))) return candidate;
+  }
+  throw new Error(`사용 가능한 파일 이름을 찾지 못했습니다: ${name}`);
+}
+
 /**
  * 보관된 핸들의 쓰기 권한을 확인하고, 필요하면 사용자에게 요청한다.
  * 사용자 제스처(클릭) 안에서 호출되어야 prompt가 정상적으로 뜬다.
